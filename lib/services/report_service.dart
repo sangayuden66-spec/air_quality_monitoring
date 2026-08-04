@@ -6,7 +6,7 @@ class ReportService {
       : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
-
+ 
   CollectionReference<Map<String, dynamic>> get _reports =>
       _db.collection('reports');
 
@@ -15,7 +15,7 @@ class ReportService {
 
   Future<void> submitReport({
     required String userId,
-    required String userName,
+    required  String userName,
     required String locationName,
     required String pollutantType,
     required String description,

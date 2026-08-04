@@ -143,7 +143,7 @@ class _VoteButton extends StatelessWidget {
       label: Text(label,
           style: TextStyle(color: enabled ? color : Colors.grey, fontSize: 12)),
       style: OutlinedButton.styleFrom(
-        side: BorderSide(color: enabled ? color.withOpacity(0.4) : Colors.grey.shade300),
+        side: BorderSide(color: enabled ? color.withValues(alpha: 0.5) : Colors.grey.shade300),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
