@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B6EF0)),
       ),
-      home: const MyHomePage(title: 'Air Quality Monitoring Syetem'),
+      home: const MyHomePage(title: 'Air Quality Monitoring System'),
     );
   }
 }
