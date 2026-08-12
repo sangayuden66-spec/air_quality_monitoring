@@ -13,7 +13,11 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
+    // Only set the build directory for subprojects that are within the root project directory.
+    // This avoids drive mismatch errors when plugins are located in a different drive (e.g. Pub Cache).
+    if (project.projectDir.absolutePath.startsWith(rootProject.rootDir.absolutePath)) {
+        project.layout.buildDirectory.value(newSubprojectBuildDir)
+    }
 }
 subprojects {
     project.evaluationDependsOn(":app")
