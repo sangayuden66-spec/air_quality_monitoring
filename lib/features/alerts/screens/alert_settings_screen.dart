@@ -101,7 +101,7 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                   title: const Text('Enable AQI Alerts'),
                   subtitle: const Text('Receive a local notification when AQI exceeds limit'),
                   value: _enabled,
-                  activeColor: Colors.teal,
+                  activeThumbColor: Colors.teal,
                   onChanged: (val) => setState(() => _enabled = val),
                 ),
                 const Divider(),

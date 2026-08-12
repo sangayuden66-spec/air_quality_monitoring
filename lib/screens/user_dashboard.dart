@@ -225,7 +225,7 @@ class _PollutantGrid extends StatelessWidget {
               children: [
                 Text(p.$1, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 Text(
-                  '${p.$2.toStringAsFixed(1)}',
+                  p.$2.toStringAsFixed(1),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(p.$3, style: const TextStyle(color: Colors.grey, fontSize: 10)),

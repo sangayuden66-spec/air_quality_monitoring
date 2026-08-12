@@ -83,17 +83,17 @@ class _MainScreenState extends State<MainScreen> {
 
   String _getAppBarTitle() {
     switch (_selectedIndex) {
-      case 0: return 'AQ Monitor';
+      case 0: return 'User Dashboard'; // Changed from 'AQ Monitor'
       case 1: return 'Analytics';
       case 2: return 'Location Map';
       case 3: return 'Community Reports';
-      default: return 'AQ Monitor';
+      default: return 'User Dashboard';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _screens = [
+    final List<Widget> screens = [
       UserDashboard(
         location: _selectedLocation,
         onViewAllReports: () => _onItemTapped(3),
@@ -136,7 +136,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       body: IndexedStack(
         index: _selectedIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,

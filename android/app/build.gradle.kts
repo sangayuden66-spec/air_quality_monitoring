@@ -18,17 +18,26 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    dependencies {
+        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     defaultConfig {
         applicationId = "com.example.air_quality_monitoring"
         // google_maps_flutter and firebase require minSdk 21 or higher
-        minSdk = flutter.minSdkVersion 
-        targetSdk = flutter.targetSdk
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

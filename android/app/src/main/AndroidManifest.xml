@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.air_quality_monitoring">
-
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -9,6 +9,12 @@
         android:label="air_quality_monitoring"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Google Maps API Key - Correctly placed under application tag -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -20,10 +26,6 @@
             android:windowSoftInputMode="adjustResize">
 
             <meta-data
-                android:name="com.google.android.geo.API_KEY"
-                android:value="${MAPS_API_KEY}" />
-
-            <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
@@ -32,6 +34,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
