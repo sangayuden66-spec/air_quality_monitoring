@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/air_quality_alert.dart';
 import '../services/alert_service.dart';
 import '../widgets/alert_card.dart';
+import 'notification_preferences_screen.dart';
 
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
@@ -21,40 +22,48 @@ class _AlertsScreenState extends State<AlertsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            StreamBuilder<int>(
-              stream: _alertService.getUnreadCount(),
-              builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
-                return Text(
-                  '$count unread notifications',
+        iconTheme: const IconThemeData(color: Colors.black),
+        automaticallyImplyLeading: true, // Shows the back button
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16, top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Notifications',
                   style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                    fontWeight: FontWeight.normal,
+                    color: Colors.black,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              },
+                ),
+                StreamBuilder<int>(
+                  stream: _alertService.getUnreadCount(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data ?? 0;
+                    return Text(
+                      '$count unread notifications',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-        centerTitle: false,
-        actions: const [SizedBox(width: 16)],
+          ),
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NotificationPreferencesScreen()),
+            ),
+            icon: const Icon(Icons.settings_outlined, color: Colors.black),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -73,17 +82,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
                 final filteredAlerts = _filterAlerts(alerts);
 
                 if (filteredAlerts.isEmpty) {
-                  return const Center(child: Text('No notifications found'));
+                  return Center(
+                    child: Text(
+                      'No notifications found',
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  );
                 }
 
                 return ListView.builder(
                   itemCount: filteredAlerts.length,
+                  padding: const EdgeInsets.only(bottom: 16),
                   itemBuilder: (context, index) {
                     final alert = filteredAlerts[index];
                     return AlertCard(
                       alert: alert,
                       onTap: () {
-                        // Handle tap
+                        _alertService.markAsRead(alert.id);
                       },
                     );
                   },
@@ -91,19 +106,6 @@ class _AlertsScreenState extends State<AlertsScreen> {
               },
             ),
           ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 3, // Just for UI look
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.teal,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Analytics'),
-          BottomNavigationBarItem(icon: Icon(Icons.location_on_outlined), label: 'Map'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Reports'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
     );
@@ -154,6 +156,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   stream: _alertService.getUnreadCount(),
                   builder: (context, snapshot) {
                     final count = snapshot.data ?? 0;
+                    if (count == 0) return const SizedBox.shrink();
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(

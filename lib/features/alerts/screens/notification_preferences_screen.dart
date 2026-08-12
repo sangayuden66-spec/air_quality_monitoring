@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/alert_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../services/alert_preference_service.dart';
+import '../../../screens/map_screen.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -11,12 +13,13 @@ class NotificationPreferencesScreen extends StatefulWidget {
 
 class _NotificationPreferencesScreenState
     extends State<NotificationPreferencesScreen> {
-  final AlertService _alertService = AlertService();
+  final AlertPreferenceService _prefService = AlertPreferenceService();
+  
   bool _isLoading = true;
-
-  bool _alertsEnabled = true;
-  double _minAQIThreshold = 100;
-  bool _sensitiveGroupAlerts = false;
+  bool _enabled = true;
+  double _threshold = 100;
+  LatLng? _alertLocation;
+  String _locationName = 'Current Location';
 
   @override
   void initState() {
@@ -26,52 +29,47 @@ class _NotificationPreferencesScreenState
 
   Future<void> _loadPreferences() async {
     try {
-      final prefs = await _alertService.getPreferences();
-      if (prefs != null) {
+      final pref = await _prefService.getAlertPreference().first;
+      if (pref != null) {
         setState(() {
-          _alertsEnabled = prefs['enabled'] ?? true;
-          _minAQIThreshold = (prefs['threshold'] ?? 100).toDouble();
-          _sensitiveGroupAlerts = prefs['sensitiveGroupAlerts'] ?? false;
+          _enabled = pref.enabled;
+          _threshold = pref.threshold.toDouble();
+          _alertLocation = LatLng(pref.latitude, pref.longitude);
+          _locationName = pref.locationName;
         });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load preferences')),
-        );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _savePreferences() async {
+  Future<void> _save() async {
+    if (_alertLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a location on the map first.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      await _alertService.savePreferences(
-        enabled: _alertsEnabled,
-        threshold: _minAQIThreshold.toInt(),
-        sensitiveGroupAlerts: _sensitiveGroupAlerts,
+      await _prefService.saveAlertPreference(
+        AlertPreference(
+          id: 'default_alert',
+          threshold: _threshold.toInt(),
+          enabled: _enabled,
+          locationName: _locationName,
+          latitude: _alertLocation!.latitude,
+          longitude: _alertLocation!.longitude,
+        ),
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Preferences saved successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save preferences')),
+          const SnackBar(content: Text('Alert settings saved!')),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -79,7 +77,14 @@ class _NotificationPreferencesScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notification Preferences'),
+        title: const Text('Alert Preferences'),
+        actions: [
+          if (!_isLoading)
+            TextButton(
+              onPressed: _save,
+              child: const Text('SAVE', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -87,70 +92,56 @@ class _NotificationPreferencesScreenState
               padding: const EdgeInsets.all(16),
               children: [
                 SwitchListTile(
-                  title: const Text('Enable Air Quality Alerts'),
-                  subtitle: const Text('Receive notifications when air quality changes'),
-                  value: _alertsEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _alertsEnabled = value;
-                    });
+                  title: const Text('Enable AQI Alerts'),
+                  subtitle: const Text('Get notified when AQI exceeds your limit'),
+                  value: _enabled,
+                  onChanged: (val) => setState(() => _enabled = val),
+                ),
+                const Divider(),
+                ListTile(
+                  title: const Text('AQI Threshold'),
+                  subtitle: Text('Notify me when AQI is above ${_threshold.toInt()}'),
+                  trailing: Text('${_threshold.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ),
+                Slider(
+                  value: _threshold,
+                  min: 0,
+                  max: 500,
+                  divisions: 50,
+                  label: _threshold.round().toString(),
+                  onChanged: _enabled ? (val) => setState(() => _threshold = val) : null,
+                ),
+                const Divider(),
+                ListTile(
+                  title: const Text('Alert Location'),
+                  subtitle: Text(_alertLocation == null 
+                      ? 'No location selected' 
+                      : 'Lat: ${_alertLocation!.latitude.toStringAsFixed(3)}, Lng: ${_alertLocation!.longitude.toStringAsFixed(3)}'),
+                  trailing: const Icon(Icons.map),
+                  onTap: () async {
+                    final LatLng? result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const MapScreen()),
+                    );
+                    if (result != null) {
+                      setState(() => _alertLocation = result);
+                    }
                   },
                 ),
-                const Divider(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Minimum AQI Threshold: ${_minAQIThreshold.toInt()}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const Text(
-                        'You will only be alerted when AQI exceeds this value.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      Slider(
-                        value: _minAQIThreshold,
-                        min: 0,
-                        max: 500,
-                        divisions: 50,
-                        label: _minAQIThreshold.toInt().toString(),
-                        onChanged: _alertsEnabled
-                            ? (value) {
-                                setState(() {
-                                  _minAQIThreshold = value;
-                                });
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(),
-                SwitchListTile(
-                  title: const Text('Sensitive Group Alerts'),
-                  subtitle: const Text(
-                      'Get extra warnings if you are in a sensitive health group'),
-                  value: _sensitiveGroupAlerts,
-                  onChanged: _alertsEnabled
-                      ? (value) {
-                          setState(() {
-                            _sensitiveGroupAlerts = value;
-                          });
-                        }
-                      : null,
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _savePreferences,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                if (_alertLocation != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextFormField(
+                      initialValue: _locationName,
+                      decoration: const InputDecoration(labelText: 'Location Name (e.g. Home)'),
+                      onChanged: (val) => _locationName = val,
                     ),
                   ),
-                  child: const Text('Save Preferences'),
+                const SizedBox(height: 40),
+                const Text(
+                  'Note: The app will check air quality for this location whenever you open or refresh the dashboard.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
