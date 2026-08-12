@@ -111,9 +111,16 @@ class ReportService {
       );
 
       final field = type == 'confirm' ? 'confirmCount' : 'denyCount';
-      transaction.update(reportRef, {
-        field: FieldValue.increment(1),
-      });
+      final currentCount = (reportSnap.data()?[field] as num?)?.toInt() ?? 0;
+      final newCount = currentCount + 1;
+
+      if (type == 'deny' && newCount >= 5) {
+        transaction.delete(reportRef);
+      } else {
+        transaction.update(reportRef, {
+          field: FieldValue.increment(1),
+        });
+      }
     });
   }
 
