@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class MapScreen extends StatefulWidget {
   final Function(LatLng)? onLocationConfirmed;
@@ -16,11 +17,18 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _selectedLocation;
   bool _isLoading = true;
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _determinePosition();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _determinePosition() async {
@@ -54,6 +62,33 @@ class _MapScreenState extends State<MapScreen> {
         _errorMessage = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _searchLocation() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        _updateLocation(LatLng(loc.latitude, loc.longitude));
+        // Clear focus
+        FocusScope.of(context).unfocus();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location not found')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error searching location: $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -93,7 +128,43 @@ class _MapScreenState extends State<MapScreen> {
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
+              padding: const EdgeInsets.only(top: 80), // Padding for search bar
             ),
+          
+          // Search Bar
+          Positioned(
+            top: 10,
+            left: 15,
+            right: 15,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search for a location...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.teal),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => _searchController.clear(),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                ),
+                onSubmitted: (_) => _searchLocation(),
+              ),
+            ),
+          ),
+
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
           else if (_errorMessage != null)
@@ -113,6 +184,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
+
           if (!_isLoading && _selectedLocation != null)
             Positioned(
               bottom: 20,

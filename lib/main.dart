@@ -83,7 +83,7 @@ class _MainScreenState extends State<MainScreen> {
 
   String _getAppBarTitle() {
     switch (_selectedIndex) {
-      case 0: return 'User Dashboard'; // Changed from 'AQ Monitor'
+      case 0: return 'User Dashboard';
       case 1: return 'Analytics';
       case 2: return 'Location Map';
       case 3: return 'Community Reports';
@@ -97,6 +97,7 @@ class _MainScreenState extends State<MainScreen> {
       UserDashboard(
         location: _selectedLocation,
         onViewAllReports: () => _onItemTapped(3),
+        onViewMap: () => _onItemTapped(2),
       ),
       const Center(child: Text('Analytics coming soon')),
       MapScreen(onLocationConfirmed: _updateGlobalLocation),
