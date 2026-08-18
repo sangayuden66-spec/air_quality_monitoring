@@ -9,6 +9,7 @@ import '../features/alerts/services/alert_preference_service.dart';
 import '../features/alerts/services/alert_service.dart';
 import '../features/alerts/models/air_quality_alert.dart';
 import '../core/models/report_item.dart';
+import '../core/services/report_service.dart';
 
 class UserDashboard extends StatefulWidget {
   final LatLng location;
@@ -126,7 +127,6 @@ class _UserDashboardState extends State<UserDashboard> {
             _PollutantGrid(data: _data!),
             const SizedBox(height: 24),
             
-            // New sections based on screenshot
             _LocationPreview(
               location: widget.location, 
               aqi: _data!.aqi,
@@ -345,11 +345,11 @@ class _LocationPreview extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
                     ),
-                    child: Column(
+                    child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Canberra, Australia', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        Text('Current Location', style: TextStyle(color: Colors.grey.shade600, fontSize: 10)),
+                        Text('Current Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text('Based on GPS', style: TextStyle(color: Colors.grey, fontSize: 10)),
                       ],
                     ),
                   ),
@@ -579,7 +579,7 @@ class _ReportsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mockReports = ReportItem.mockList();
+    final ReportService reportService = ReportService();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,7 +598,20 @@ class _ReportsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        ...mockReports.map((report) => _ReportCard(report: report)),
+        StreamBuilder<List<ReportItem>>(
+          stream: reportService.getReportsStream(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: Text('No reports available', style: TextStyle(color: Colors.grey))),
+              );
+            }
+            return Column(
+              children: snapshot.data!.take(3).map((report) => _ReportCard(report: report)).toList(),
+            );
+          },
+        ),
       ],
     );
   }
@@ -654,7 +667,7 @@ class _ReportCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(report.time, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              Text(report.timeAgo, style: const TextStyle(color: Colors.grey, fontSize: 11)),
               const Icon(Icons.chevron_right, color: Colors.grey),
             ],
           ),

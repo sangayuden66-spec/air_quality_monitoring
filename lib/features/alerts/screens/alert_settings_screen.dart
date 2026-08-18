@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/alert_preference_service.dart';
 import '../../../screens/map_screen.dart';
+import '../../auth/services/auth_service.dart';
 
 class AlertSettingsScreen extends StatefulWidget {
   const AlertSettingsScreen({super.key});
@@ -12,6 +13,7 @@ class AlertSettingsScreen extends StatefulWidget {
 
 class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
   final AlertPreferenceService _prefService = AlertPreferenceService();
+  final AuthService _authService = AuthService();
   
   bool _isLoading = true;
   bool _enabled = true;
@@ -79,11 +81,36 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
     }
   }
 
+  void _handleLogout() async {
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm) {
+      await _authService.signOut();
+      if (mounted) {
+        // Pop back to the root (which will now show the login screen via AuthWrapper)
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Alert Settings'),
+        title: const Text('Settings'),
         actions: [
           if (!_isLoading)
             TextButton(
@@ -97,11 +124,16 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const Text(
+                  'NOTIFICATIONS',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal),
+                ),
+                const SizedBox(height: 8),
                 SwitchListTile(
                   title: const Text('Enable AQI Alerts'),
                   subtitle: const Text('Receive a local notification when AQI exceeds limit'),
                   value: _enabled,
-                  activeThumbColor: Colors.teal,
+                  activeColor: Colors.teal,
                   onChanged: (val) => setState(() => _enabled = val),
                 ),
                 const Divider(),
@@ -149,8 +181,19 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                   ),
                 const SizedBox(height: 40),
                 const Text(
-                  'The app monitors air quality for your selected alert location whenever you refresh the dashboard.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  'ACCOUNT',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  title: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  onTap: _handleLogout,
+                ),
+                const SizedBox(height: 40),
+                const Text(
+                  'Version 1.0.0',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
               ],

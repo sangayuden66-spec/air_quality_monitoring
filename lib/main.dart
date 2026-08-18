@@ -7,6 +7,8 @@ import 'core/services/user_service.dart';
 import 'core/services/notification_service.dart';
 import 'features/alerts/screens/alerts_screen.dart';
 import 'features/alerts/services/alert_service.dart';
+import 'features/alerts/screens/alert_settings_screen.dart';
+import 'features/auth/screens/login_screen.dart';
 import 'screens/user_dashboard.dart';
 import 'screens/reports_screen.dart';
 import 'screens/map_screen.dart';
@@ -22,12 +24,6 @@ void main() async {
     final notificationService = NotificationService();
     await notificationService.init();
     await notificationService.requestPermissions();
-    
-    if (FirebaseAuth.instance.currentUser == null) {
-      await FirebaseAuth.instance.signInAnonymously();
-    }
-    
-    await UserService().ensureUserDocument();
     
   } catch (e) {
     debugPrint('Initialization error: $e');
@@ -51,7 +47,31 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
       ),
-      home: const MainScreen(),
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        
+        if (snapshot.hasData) {
+          // User is logged in
+          return const MainScreen();
+        }
+        
+        // User is logged out
+        return const LoginScreen();
+      },
     );
   }
 }
@@ -67,6 +87,13 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   LatLng _selectedLocation = const LatLng(-35.2809, 149.1300);
   final AlertService _alertService = AlertService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Safely ensure user document exists when MainScreen loads
+    UserService().ensureUserDocument();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -87,6 +114,7 @@ class _MainScreenState extends State<MainScreen> {
       case 1: return 'Analytics';
       case 2: return 'Location Map';
       case 3: return 'Community Reports';
+      case 4: return 'Settings';
       default: return 'User Dashboard';
     }
   }
@@ -102,6 +130,7 @@ class _MainScreenState extends State<MainScreen> {
       const Center(child: Text('Analytics coming soon')),
       MapScreen(onLocationConfirmed: _updateGlobalLocation),
       const ReportsScreen(),
+      const AlertSettingsScreen(),
     ];
 
     return Scaffold(
@@ -152,6 +181,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Analytics'),
           BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Map'),
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Reports'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
     );

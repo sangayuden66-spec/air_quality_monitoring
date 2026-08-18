@@ -9,34 +9,42 @@ class UserService {
   CollectionReference get _usersCollection => _firestore.collection('users');
 
   /// Creates or updates the user document in Firestore safely.
-  Future<void> ensureUserDocument() async {
+  /// [providedName] can be passed during signup to ensure the name is saved immediately.
+  Future<void> ensureUserDocument({String? providedName}) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final docRef = _usersCollection.doc(user.uid);
-    final doc = await docRef.get();
+    try {
+      final docRef = _usersCollection.doc(user.uid);
+      final doc = await docRef.get().timeout(const Duration(seconds: 5));
 
-    if (!doc.exists) {
-      final newUser = UserModel(
-        uid: user.uid,
-        email: user.email ?? '',
-        displayName: user.displayName,
-        notificationsEnabled: true,
-        defaultAqiThreshold: 100,
-        createdAt: DateTime.now(),
-      );
-      await docRef.set(newUser.toMap());
-    } else {
-      // Update email/displayName if they changed or were missing
-      await docRef.update({
-        'email': user.email ?? '',
-        if (user.displayName != null) 'displayName': user.displayName,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (!doc.exists) {
+        final newUser = UserModel(
+          uid: user.uid,
+          email: user.email ?? '',
+          displayName: providedName ?? user.displayName ?? 'Anonymous User',
+          notificationsEnabled: true,
+          defaultAqiThreshold: 100,
+          createdAt: DateTime.now(),
+        );
+        await docRef.set(newUser.toMap());
+      }
+    } catch (e) {
+      print('Error ensuring user document: $e');
+      // We don't rethrow here to prevent blocking the app flow
     }
   }
 
-  /// Retrieves the current user's data.
+  Future<void> updateDisplayName(String name) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _usersCollection.doc(user.uid).update({
+      'displayName': name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Stream<UserModel?> getUserData() {
     final user = _auth.currentUser;
     if (user == null) return Stream.value(null);
@@ -49,7 +57,6 @@ class UserService {
     });
   }
 
-  /// Updates user notification preferences.
   Future<void> updatePreferences({
     required bool enabled,
     required int threshold,
