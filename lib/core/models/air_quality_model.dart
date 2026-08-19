@@ -1,7 +1,8 @@
 class AirQualityModel {
   final double latitude;
   final double longitude;
-  final int aqi;
+  final int aqi; // US AQI (0-500) for display
+  final int aqiIndex; // OpenWeather index (1-5) for logic
   final double pm25;
   final double pm10;
   final double co;
@@ -14,6 +15,7 @@ class AirQualityModel {
     required this.latitude,
     required this.longitude,
     required this.aqi,
+    required this.aqiIndex,
     required this.pm25,
     required this.pm10,
     required this.co,
@@ -23,29 +25,31 @@ class AirQualityModel {
     required this.timestamp,
   });
 
-  factory AirQualityModel.fromJson(Map<String, dynamic> json) {
-    // Open-Meteo current_air_quality data structure
-    final current = json['current'];
-    return AirQualityModel(
-      latitude: json['latitude']?.toDouble() ?? 0.0,
-      longitude: json['longitude']?.toDouble() ?? 0.0,
-      aqi: current['us_aqi']?.toInt() ?? 0,
-      pm25: current['pm2_5']?.toDouble() ?? 0.0,
-      pm10: current['pm10']?.toDouble() ?? 0.0,
-      co: current['carbon_monoxide']?.toDouble() ?? 0.0,
-      no2: current['nitrogen_dioxide']?.toDouble() ?? 0.0,
-      so2: current['sulphur_dioxide']?.toDouble() ?? 0.0,
-      o3: current['ozone']?.toDouble() ?? 0.0,
-      timestamp: DateTime.parse(current['time']),
-    );
+  String get aqiCategory {
+    switch (aqiIndex) {
+      case 1: return 'Good';
+      case 2: return 'Fair';
+      case 3: return 'Moderate';
+      case 4: return 'Poor';
+      case 5: return 'Dangerous / Hazardous';
+      default: return 'Unknown';
+    }
   }
 
-  String get aqiCategory {
-    if (aqi <= 50) return 'Good';
-    if (aqi <= 100) return 'Moderate';
-    if (aqi <= 150) return 'Unhealthy for Sensitive Groups';
-    if (aqi <= 200) return 'Unhealthy';
-    if (aqi <= 300) return 'Very Unhealthy';
-    return 'Hazardous';
+  String get healthAdvice {
+    switch (aqiIndex) {
+      case 1:
+        return 'Air quality is good. Normal outdoor activities are suitable.';
+      case 2:
+        return 'Air quality is generally acceptable. Sensitive people should monitor symptoms.';
+      case 3:
+        return 'Sensitive people should reduce prolonged or strenuous outdoor activity.';
+      case 4:
+        return 'POOR AIR QUALITY: Wear a mask outdoors. Limit time outside and keep windows closed.';
+      case 5:
+        return 'DANGEROUS AIR QUALITY: Stay indoors! Use air purifiers, keep all windows closed, and wear a N95 mask if you must step out.';
+      default:
+        return 'General guidance only. Follow local health and emergency-service advice.';
+    }
   }
 }

@@ -3,14 +3,12 @@ import 'package:http/http.dart' as http;
 import '../core/models/air_quality_model.dart';
 
 class OpenWeatherService {
-  // Your API Key
   static const String _apiKey = 'b544fe3d20b5b5095b673ae226259ab0';
 
   Future<AirQualityModel> fetchAirQuality({
     required double latitude,
     required double longitude,
   }) async {
-    // OpenWeather API requires 'appid' in all lowercase.
     final uri = Uri.https(
       'api.openweathermap.org',
       '/data/2.5/air_pollution',
@@ -34,7 +32,7 @@ class OpenWeatherService {
       }
     } catch (e) {
       if (e.toString().contains('SocketException') || e.toString().contains('host lookup')) {
-        throw Exception('Connection failed. Please ensure your emulator has internet access (try a Cold Boot).');
+        throw Exception('Connection failed. Please ensure your emulator has internet access.');
       }
       throw Exception('Failed to connect to OpenWeather: $e');
     }
@@ -47,15 +45,16 @@ class OpenWeatherService {
     final current = list[0];
     final main = current['main'];
     final components = current['components'];
+    final int rawIndex = main['aqi'] as int; // OpenWeather scale 1-5
 
-    // Mapping OpenWeather index (1-5) to your dashboard's AQI scale
+    // Map 1-5 to a 0-500 scale for legacy UI compatibility
     int mappedAqi;
-    switch (main['aqi'] as int) {
-      case 1: mappedAqi = 30; break;  // Good
-      case 2: mappedAqi = 75; break;  // Moderate
-      case 3: mappedAqi = 125; break; // Unhealthy (Sensitive)
-      case 4: mappedAqi = 175; break; // Unhealthy
-      case 5: mappedAqi = 250; break; // Very Unhealthy
+    switch (rawIndex) {
+      case 1: mappedAqi = 30; break;
+      case 2: mappedAqi = 75; break;
+      case 3: mappedAqi = 125; break;
+      case 4: mappedAqi = 175; break;
+      case 5: mappedAqi = 250; break;
       default: mappedAqi = 0;
     }
 
@@ -63,6 +62,7 @@ class OpenWeatherService {
       latitude: lat,
       longitude: lon,
       aqi: mappedAqi,
+      aqiIndex: rawIndex, // Store the 1-5 index for threshold checking
       pm25: (components['pm2_5'] as num).toDouble(),
       pm10: (components['pm10'] as num).toDouble(),
       co: (components['co'] as num).toDouble(),

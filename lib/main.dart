@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'firebase_options.dart';
 import 'core/services/user_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/fcm_service.dart';
 import 'features/alerts/screens/alerts_screen.dart';
 import 'features/alerts/services/alert_service.dart';
 import 'features/alerts/screens/alert_settings_screen.dart';
@@ -12,6 +13,9 @@ import 'features/auth/screens/login_screen.dart';
 import 'screens/user_dashboard.dart';
 import 'screens/reports_screen.dart';
 import 'screens/map_screen.dart';
+
+// Global key for navigation without BuildContext
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +28,17 @@ void main() async {
     final notificationService = NotificationService();
     await notificationService.init();
     await notificationService.requestPermissions();
+
+    final fcmService = FcmService();
+    await fcmService.init();
+
+    // Handle taps on local notifications (foreground FCM)
+    notificationService.onNotificationTap = (payload) {
+      if (payload == 'aqi_dashboard' || payload == 'aqi_alert') {
+        // Switch to the first tab (Home/Dashboard)
+        navigatorKey.currentState?.popUntil((route) => route.isFirst);
+      }
+    };
     
   } catch (e) {
     debugPrint('Initialization error: $e');
@@ -38,6 +53,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Air Quality Monitor',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -65,11 +81,9 @@ class AuthWrapper extends StatelessWidget {
         }
         
         if (snapshot.hasData) {
-          // User is logged in
           return const MainScreen();
         }
         
-        // User is logged out
         return const LoginScreen();
       },
     );
@@ -91,7 +105,6 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // Safely ensure user document exists when MainScreen loads
     UserService().ensureUserDocument();
   }
 

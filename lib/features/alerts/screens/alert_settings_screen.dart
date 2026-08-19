@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/alert_preference_service.dart';
 import '../../../screens/map_screen.dart';
 import '../../auth/services/auth_service.dart';
+import '../../../core/services/fcm_service.dart';
 
 class AlertSettingsScreen extends StatefulWidget {
   const AlertSettingsScreen({super.key});
@@ -14,10 +15,11 @@ class AlertSettingsScreen extends StatefulWidget {
 class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
   final AlertPreferenceService _prefService = AlertPreferenceService();
   final AuthService _authService = AuthService();
+  final FcmService _fcmService = FcmService();
   
   bool _isLoading = true;
   bool _enabled = true;
-  double _threshold = 100;
+  double _threshold = 3; // Default to 3 (Moderate)
   LatLng? _alertLocation;
   String _locationName = 'My Alert Location';
 
@@ -67,7 +69,7 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alert settings saved successfully!')),
+          const SnackBar(content: Text('Settings saved! Monitoring active.'), backgroundColor: Colors.teal),
         );
       }
     } catch (e) {
@@ -78,6 +80,17 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _getAqiLabel(int val) {
+    switch (val) {
+      case 1: return '1 - Good';
+      case 2: return '2 - Fair';
+      case 3: return '3 - Moderate';
+      case 4: return '4 - Poor';
+      case 5: return '5 - Very Poor';
+      default: return 'Select Index';
     }
   }
 
@@ -98,9 +111,11 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
     ) ?? false;
 
     if (confirm) {
+      // 1. Clean up FCM token before signing out
+      await _fcmService.deleteToken();
+      // 2. Sign out
       await _authService.signOut();
       if (mounted) {
-        // Pop back to the root (which will now show the login screen via AuthWrapper)
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     }
@@ -125,38 +140,36 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 const Text(
-                  'NOTIFICATIONS',
+                  'ALERTS',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal),
                 ),
-                const SizedBox(height: 8),
                 SwitchListTile(
-                  title: const Text('Enable AQI Alerts'),
-                  subtitle: const Text('Receive a local notification when AQI exceeds limit'),
+                  title: const Text('Background Monitoring'),
+                  subtitle: const Text('Receive alerts when air quality drops'),
                   value: _enabled,
                   activeColor: Colors.teal,
                   onChanged: (val) => setState(() => _enabled = val),
                 ),
                 const Divider(),
                 ListTile(
-                  title: const Text('AQI Threshold'),
-                  subtitle: Text('Notify when US AQI is above ${_threshold.toInt()}'),
-                  trailing: Text('${_threshold.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  title: const Text('Alert Threshold'),
+                  subtitle: Text('Notify when index reaches: ${_getAqiLabel(_threshold.toInt())}'),
                 ),
                 Slider(
                   value: _threshold,
-                  min: 0,
-                  max: 500,
-                  divisions: 50,
-                  label: _threshold.round().toString(),
+                  min: 1,
+                  max: 5,
+                  divisions: 4,
+                  label: _getAqiLabel(_threshold.toInt()),
                   onChanged: _enabled ? (val) => setState(() => _threshold = val) : null,
                 ),
                 const Divider(),
                 ListTile(
-                  title: const Text('Alert Location'),
+                  title: const Text('Monitoring Location'),
                   subtitle: Text(_alertLocation == null 
-                      ? 'No location selected' 
+                      ? 'Select location on map' 
                       : 'Lat: ${_alertLocation!.latitude.toStringAsFixed(3)}, Lng: ${_alertLocation!.longitude.toStringAsFixed(3)}'),
-                  trailing: const Icon(Icons.map_outlined, color: Colors.teal),
+                  trailing: const Icon(Icons.location_searching, color: Colors.teal),
                   onTap: () async {
                     final LatLng? result = await Navigator.push(
                       context,
@@ -167,33 +180,20 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                     }
                   },
                 ),
-                if (_alertLocation != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextFormField(
-                      initialValue: _locationName,
-                      decoration: const InputDecoration(
-                        labelText: 'Location Description',
-                        hintText: 'e.g. Home, Office, or School',
-                      ),
-                      onChanged: (val) => _locationName = val,
-                    ),
-                  ),
                 const SizedBox(height: 40),
                 const Text(
                   'ACCOUNT',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.redAccent),
                 ),
-                const SizedBox(height: 8),
                 ListTile(
-                  title: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                  title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
                   leading: const Icon(Icons.logout, color: Colors.red),
                   onTap: _handleLogout,
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
                 const Text(
-                  'Version 1.0.0',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  'AQI data provided by OpenWeather. Notifications are sent when local quality exceeds your limit.',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
               ],

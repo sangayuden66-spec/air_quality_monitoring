@@ -3,41 +3,61 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class AlertPreference {
   final String id;
-  final int threshold;
   final bool enabled;
-  final String locationName;
+  final int threshold; // 1 to 5 (OpenWeather scale)
   final double latitude;
   final double longitude;
+  final String locationName;
+  final int? lastNotifiedAqi;
+  final DateTime? lastNotifiedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   AlertPreference({
     required this.id,
-    required this.threshold,
     required this.enabled,
-    required this.locationName,
+    required this.threshold,
     required this.latitude,
     required this.longitude,
+    required this.locationName,
+    this.lastNotifiedAqi,
+    this.lastNotifiedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'threshold': threshold,
       'enabled': enabled,
-      'locationName': locationName,
+      'threshold': threshold,
       'latitude': latitude,
       'longitude': longitude,
+      'locationName': locationName,
+      'lastNotifiedAqi': lastNotifiedAqi,
+      'lastNotifiedAt': lastNotifiedAt != null ? Timestamp.fromDate(lastNotifiedAt!) : null,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 
   factory AlertPreference.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    int threshold = (data['threshold'] as num?)?.toInt() ?? 3;
+    
+    // Migration: If the threshold is from the old 0-500 scale, reset it to default (Moderate)
+    if (threshold > 5) threshold = 3; 
+
     return AlertPreference(
       id: doc.id,
-      threshold: data['threshold'] ?? 100,
       enabled: data['enabled'] ?? true,
+      threshold: threshold,
+      latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
       locationName: data['locationName'] ?? 'Selected Location',
-      latitude: (data['latitude'] as num).toDouble(),
-      longitude: (data['longitude'] as num).toDouble(),
+      lastNotifiedAqi: (data['lastNotifiedAqi'] as num?)?.toInt(),
+      lastNotifiedAt: (data['lastNotifiedAt'] as Timestamp?)?.toDate(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
 }
@@ -48,22 +68,24 @@ class AlertPreferenceService {
 
   String? get _uid => _auth.currentUser?.uid;
 
-  /// Saves or updates an alert preference for the current user.
   Future<void> saveAlertPreference(AlertPreference pref) async {
-    if (_uid == null) return;
+    if (_uid == null) throw Exception('User not authenticated');
     
-    final docRef = _firestore.collection('users').doc(_uid).collection('alerts').doc('default_alert');
+    if (pref.threshold < 1 || pref.threshold > 5) {
+      throw Exception('Threshold must be between 1 and 5');
+    }
     
-    await docRef.set({
-      ...pref.toMap(),
-      if (pref.id.isEmpty) 'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final docRef = _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('alerts')
+        .doc('default_alert');
+    
+    await docRef.set(pref.toMap(), SetOptions(merge: true));
   }
 
-  /// Streams the user's current alert preference.
   Stream<AlertPreference?> getAlertPreference() {
     if (_uid == null) return Stream.value(null);
-    
     return _firestore
         .collection('users')
         .doc(_uid)

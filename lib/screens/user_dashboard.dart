@@ -82,12 +82,24 @@ class _UserDashboardState extends State<UserDashboard> {
 
   Future<void> _checkAlertThreshold(AirQualityModel currentData) async {
     _prefService.getAlertPreference().first.then((pref) {
-      if (pref != null && pref.enabled && currentData.aqi >= pref.threshold) {
-        _notificationService.showAqiAlert(
-          aqi: currentData.aqi,
-          threshold: pref.threshold,
-          location: pref.locationName,
-        );
+      if (pref != null && pref.enabled) {
+        // Compare on the 1-5 scale
+        if (currentData.aqiIndex >= pref.threshold) {
+          // 1. Show Local Notification
+          _notificationService.showAqiAlert(
+            aqi: currentData.aqi,
+            category: currentData.aqiCategory,
+            advice: currentData.healthAdvice,
+            location: pref.locationName,
+          );
+
+          // 2. Save to Firestore History for the Alerts tab
+          _alertService.saveTriggeredAlert(
+            data: currentData,
+            locationName: pref.locationName,
+            threshold: pref.threshold,
+          );
+        }
       }
     });
   }
@@ -182,7 +194,7 @@ class _AqiHeroCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text('Selected Location', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text('Current Location', style: TextStyle(color: Colors.white70, fontSize: 14)),
           Text(
             '${data.latitude.toStringAsFixed(3)}, ${data.longitude.toStringAsFixed(3)}',
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -196,6 +208,12 @@ class _AqiHeroCard extends StatelessWidget {
           Text(
             data.aqiCategory,
             style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            data.healthAdvice,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
           ),
           if (lastUpdated != null) ...[
             const SizedBox(height: 12),
@@ -312,8 +330,8 @@ class _LocationPreview extends StatelessWidget {
                       circleId: const CircleId('aqi_area'),
                       center: location,
                       radius: 2000,
-                      fillColor: Colors.teal.withOpacity(0.1),
-                      strokeColor: Colors.teal.withOpacity(0.3),
+                      fillColor: Colors.teal.withValues(alpha: 0.1),
+                      strokeColor: Colors.teal.withValues(alpha: 0.3),
                       strokeWidth: 1,
                     ),
                   },
@@ -335,60 +353,11 @@ class _LocationPreview extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Current Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                        Text('Based on GPS', style: TextStyle(color: Colors.grey, fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 16,
-                  left: 16,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildAqiDot(Colors.green),
-                        _buildAqiDot(Colors.yellow.shade700),
-                        _buildAqiDot(Colors.orange),
-                        _buildAqiDot(Colors.red),
-                        const SizedBox(width: 4),
-                        const Text('AQI Scale', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAqiDot(Color color) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
@@ -442,7 +411,7 @@ class _HistoryChart extends StatelessWidget {
                   belowBarData: BarAreaData(
                     show: true,
                     gradient: LinearGradient(
-                      colors: [Colors.teal.withOpacity(0.2), Colors.teal.withOpacity(0.0)],
+                      colors: [Colors.teal.withValues(alpha: 0.2), Colors.teal.withValues(alpha: 0.0)],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -452,32 +421,6 @@ class _HistoryChart extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _ChartLegend(color: Colors.green, label: 'Good'),
-            _ChartLegend(color: Colors.yellow, label: 'Moderate'),
-            _ChartLegend(color: Colors.orange, label: 'Unhealthy'),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ChartLegend extends StatelessWidget {
-  final Color color;
-  final String label;
-  const _ChartLegend({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
       ],
     );
   }
@@ -495,7 +438,7 @@ class _AlertsSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Recent Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             StreamBuilder<int>(
               stream: alertService.getUnreadCount(),
               builder: (context, snapshot) {
@@ -545,13 +488,13 @@ class _AlertCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.orange.shade200),
-        boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.05), blurRadius: 10, spreadRadius: 2)],
+        boxShadow: [BoxShadow(color: Colors.orange.withValues(alpha: 0.05), blurRadius: 10, spreadRadius: 2)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), shape: BoxShape.circle),
             child: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
           ),
           const SizedBox(width: 12),
@@ -577,6 +520,59 @@ class _ReportsSection extends StatelessWidget {
   final VoidCallback? onViewAll;
   const _ReportsSection({this.onViewAll});
 
+  void _showSubmitDialog(BuildContext context) {
+    final reportService = ReportService();
+    final locController = TextEditingController();
+    final textController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Share Air Quality Update'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: locController, 
+                enabled: !isSubmitting,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+              TextField(
+                controller: textController, 
+                enabled: !isSubmitting,
+                decoration: const InputDecoration(labelText: 'Status/Observation'), 
+                maxLines: 2,
+              ),
+              if (isSubmitting) const LinearProgressIndicator(),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: isSubmitting ? null : () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: isSubmitting ? null : () async {
+                if (locController.text.isNotEmpty && textController.text.isNotEmpty) {
+                  setDialogState(() => isSubmitting = true);
+                  try {
+                    await reportService.submitReport(location: locController.text, text: textController.text);
+                    if (context.mounted) Navigator.pop(context);
+                  } catch (e) {
+                    setDialogState(() => isSubmitting = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
+                  }
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ReportService reportService = ReportService();
@@ -587,11 +583,18 @@ class _ReportsSection extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.chat_bubble_outline, size: 20),
-                SizedBox(width: 8),
-                Text('Live Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Icon(Icons.chat_bubble_outline, size: 20),
+                const SizedBox(width: 8),
+                const Text('Live Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _showSubmitDialog(context),
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.teal, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
               ],
             ),
             TextButton(onPressed: onViewAll, child: const Text('View All')),
