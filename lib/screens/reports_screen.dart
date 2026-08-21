@@ -142,7 +142,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -190,15 +190,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           Row(
                             children: [
                               _buildAction(
-                                Icons.thumb_up_off_alt, 
-                                report.confirm.toString(),
-                                () => _reportService.confirmReport(report.id),
+                                icon: Icons.check_circle_outline,
+                                count: report.confirm.toString(),
+                                label: 'Confirm',
+                                textColor: const Color(0xFF0F9D75),
+                                backgroundColor: const Color(0xFFE8F8F1),
+                                onTap: () => _reportService.confirmReport(report.id),
                               ),
                               const SizedBox(width: 16),
                               _buildAction(
-                                Icons.thumb_down_off_alt, 
-                                report.deny.toString(),
-                                () => _reportService.denyReport(report.id),
+                                icon: Icons.cancel_outlined,
+                                count: report.deny.toString(),
+                                label: 'Deny',
+                                textColor: const Color(0xFFDC2626),
+                                backgroundColor: const Color(0xFFFDEDED),
+                                onTap: () => _reportService.denyReport(report.id),
                               ),
                             ],
                           ),
@@ -220,15 +226,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildAction(IconData icon, String count, VoidCallback onTap) {
+  Widget _buildAction({
+    required IconData icon,
+    required String count,
+    required String label,
+    required Color textColor,
+    required Color backgroundColor,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey),
-          const SizedBox(width: 4),
-          Text(count, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: textColor),
+            const SizedBox(width: 6),
+            Text(
+              '$count  $label',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

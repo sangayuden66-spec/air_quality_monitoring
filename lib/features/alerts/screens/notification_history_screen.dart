@@ -23,9 +23,17 @@ class NotificationHistoryScreen extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text(
+                'Unable to load notification history.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            );
+          }
+
           final history = snapshot.data ?? [];
-          
+
           if (history.isEmpty) {
             return Center(
               child: Column(
@@ -33,7 +41,10 @@ class NotificationHistoryScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.history, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
-                  const Text('No alert history found', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'No alert history found',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
@@ -61,12 +72,18 @@ class _HistoryCard extends StatelessWidget {
 
   Color _getCategoryColor(int index) {
     switch (index) {
-      case 1: return Colors.green;
-      case 2: return Colors.yellow.shade700;
-      case 3: return Colors.orange;
-      case 4: return Colors.red;
-      case 5: return Colors.purple;
-      default: return Colors.grey;
+      case 1:
+        return Colors.green;
+      case 2:
+        return Colors.yellow.shade700;
+      case 3:
+        return Colors.orange;
+      case 4:
+        return Colors.red;
+      case 5:
+        return Colors.purple;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -76,7 +93,9 @@ class _HistoryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: item.isRead ? Colors.grey.shade200 : Colors.teal.shade200),
+        side: BorderSide(
+          color: item.isRead ? Colors.grey.shade200 : Colors.teal.shade200,
+        ),
       ),
       elevation: 0,
       child: InkWell(
@@ -91,30 +110,36 @@ class _HistoryCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: _getCategoryColor(item.aqiIndex).withValues(alpha: 0.1),
+                      color: _getCategoryColor(item.aqi).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       item.category,
                       style: TextStyle(
-                        color: _getCategoryColor(item.aqiIndex),
+                        color: _getCategoryColor(item.aqi),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
                     ),
                   ),
                   Text(
-                    DateFormat('MMM d, h:mm a').format(item.timestamp),
+                    DateFormat('MMM d, h:mm a').format(item.createdAt),
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
-                'AQI Level: ${item.aqiIndex} in ${item.location}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'AQI Level: ${item.aqi} in ${item.locationName}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -125,7 +150,11 @@ class _HistoryCard extends StatelessWidget {
               const Divider(),
               const Text(
                 'General guidance only. Follow local health and emergency-service advice.',
-                style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),

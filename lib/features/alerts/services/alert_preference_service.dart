@@ -34,8 +34,12 @@ class AlertPreference {
       'longitude': longitude,
       'locationName': locationName,
       'lastNotifiedAqi': lastNotifiedAqi,
-      'lastNotifiedAt': lastNotifiedAt != null ? Timestamp.fromDate(lastNotifiedAt!) : null,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'lastNotifiedAt': lastNotifiedAt != null
+          ? Timestamp.fromDate(lastNotifiedAt!)
+          : null,
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -43,9 +47,9 @@ class AlertPreference {
   factory AlertPreference.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     int threshold = (data['threshold'] as num?)?.toInt() ?? 3;
-    
+
     // Migration: If the threshold is from the old 0-500 scale, reset it to default (Moderate)
-    if (threshold > 5) threshold = 3; 
+    if (threshold > 5) threshold = 3;
 
     return AlertPreference(
       id: doc.id,
@@ -70,17 +74,17 @@ class AlertPreferenceService {
 
   Future<void> saveAlertPreference(AlertPreference pref) async {
     if (_uid == null) throw Exception('User not authenticated');
-    
+
     if (pref.threshold < 1 || pref.threshold > 5) {
       throw Exception('Threshold must be between 1 and 5');
     }
-    
+
     final docRef = _firestore
         .collection('users')
         .doc(_uid)
         .collection('alerts')
         .doc('default_alert');
-    
+
     await docRef.set(pref.toMap(), SetOptions(merge: true));
   }
 
@@ -93,5 +97,58 @@ class AlertPreferenceService {
         .doc('default_alert')
         .snapshots()
         .map((doc) => doc.exists ? AlertPreference.fromFirestore(doc) : null);
+  }
+
+  Future<void> syncLocationWithSelection({
+    required double latitude,
+    required double longitude,
+    String? locationName,
+  }) async {
+    if (_uid == null) return;
+
+    final docRef = _firestore
+        .collection('users')
+        .doc(_uid)
+        .collection('alerts')
+        .doc('default_alert');
+    final existing = await docRef.get();
+
+    final resolvedName =
+        locationName ??
+        'Lat ${latitude.toStringAsFixed(3)}, Lng ${longitude.toStringAsFixed(3)}';
+
+    if (!existing.exists) {
+      await docRef.set({
+        'enabled': true,
+        'threshold': 3,
+        'latitude': latitude,
+        'longitude': longitude,
+        'locationName': resolvedName,
+        'lastNotifiedAqi': null,
+        'lastNotifiedAt': null,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return;
+    }
+
+    final data =
+        existing.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final prevLat = (data['latitude'] as num?)?.toDouble();
+    final prevLon = (data['longitude'] as num?)?.toDouble();
+    final locationChanged =
+        prevLat == null ||
+        prevLon == null ||
+        (prevLat - latitude).abs() > 0.0001 ||
+        (prevLon - longitude).abs() > 0.0001;
+
+    await docRef.set({
+      'latitude': latitude,
+      'longitude': longitude,
+      'locationName': resolvedName,
+      if (locationChanged) 'lastNotifiedAqi': null,
+      if (locationChanged) 'lastNotifiedAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

@@ -14,10 +14,10 @@ class NotificationPreferencesScreen extends StatefulWidget {
 class _NotificationPreferencesScreenState
     extends State<NotificationPreferencesScreen> {
   final AlertPreferenceService _prefService = AlertPreferenceService();
-  
+
   bool _isLoading = true;
   bool _enabled = true;
-  double _threshold = 100;
+  double _threshold = 3;
   LatLng? _alertLocation;
   String _locationName = 'Current Location';
 
@@ -46,7 +46,9 @@ class _NotificationPreferencesScreenState
   Future<void> _save() async {
     if (_alertLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a location on the map first.')),
+        const SnackBar(
+          content: Text('Please select a location on the map first.'),
+        ),
       );
       return;
     }
@@ -64,9 +66,9 @@ class _NotificationPreferencesScreenState
         ),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alert settings saved!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Alert settings saved!')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -82,7 +84,13 @@ class _NotificationPreferencesScreenState
           if (!_isLoading)
             TextButton(
               onPressed: _save,
-              child: const Text('SAVE', style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'SAVE',
+                style: TextStyle(
+                  color: Colors.teal,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
@@ -93,35 +101,51 @@ class _NotificationPreferencesScreenState
               children: [
                 SwitchListTile(
                   title: const Text('Enable AQI Alerts'),
-                  subtitle: const Text('Get notified when AQI exceeds your limit'),
+                  subtitle: const Text(
+                    'Get notified when AQI exceeds your limit',
+                  ),
                   value: _enabled,
                   onChanged: (val) => setState(() => _enabled = val),
                 ),
                 const Divider(),
                 ListTile(
                   title: const Text('AQI Threshold'),
-                  subtitle: Text('Notify me when AQI is above ${_threshold.toInt()}'),
-                  trailing: Text('${_threshold.toInt()}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  subtitle: Text(
+                    'Notify me when AQI index is at least ${_threshold.toInt()}',
+                  ),
+                  trailing: Text(
+                    _getAqiLabel(_threshold.toInt()),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
                 Slider(
                   value: _threshold,
-                  min: 0,
-                  max: 500,
-                  divisions: 50,
-                  label: _threshold.round().toString(),
-                  onChanged: _enabled ? (val) => setState(() => _threshold = val) : null,
+                  min: 1,
+                  max: 5,
+                  divisions: 4,
+                  label: _getAqiLabel(_threshold.round()),
+                  onChanged: _enabled
+                      ? (val) => setState(() => _threshold = val)
+                      : null,
                 ),
                 const Divider(),
                 ListTile(
                   title: const Text('Alert Location'),
-                  subtitle: Text(_alertLocation == null 
-                      ? 'No location selected' 
-                      : 'Lat: ${_alertLocation!.latitude.toStringAsFixed(3)}, Lng: ${_alertLocation!.longitude.toStringAsFixed(3)}'),
+                  subtitle: Text(
+                    _alertLocation == null
+                        ? 'No location selected'
+                        : 'Lat: ${_alertLocation!.latitude.toStringAsFixed(3)}, Lng: ${_alertLocation!.longitude.toStringAsFixed(3)}',
+                  ),
                   trailing: const Icon(Icons.map),
                   onTap: () async {
                     final LatLng? result = await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const MapScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const MapScreen(),
+                      ),
                     );
                     if (result != null) {
                       setState(() => _alertLocation = result);
@@ -133,18 +157,41 @@ class _NotificationPreferencesScreenState
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TextFormField(
                       initialValue: _locationName,
-                      decoration: const InputDecoration(labelText: 'Location Name (e.g. Home)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Location Name (e.g. Home)',
+                      ),
                       onChanged: (val) => _locationName = val,
                     ),
                   ),
                 const SizedBox(height: 40),
                 const Text(
                   'Note: The app will check air quality for this location whenever you open or refresh the dashboard.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
     );
+  }
+
+  String _getAqiLabel(int value) {
+    switch (value) {
+      case 1:
+        return '1 Good';
+      case 2:
+        return '2 Fair';
+      case 3:
+        return '3 Moderate';
+      case 4:
+        return '4 Poor';
+      case 5:
+        return '5 Very Poor';
+      default:
+        return '$value';
+    }
   }
 }

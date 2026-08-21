@@ -9,20 +9,25 @@ class NotificationHistoryService {
   String? get _uid => _auth.currentUser?.uid;
 
   /// Get a stream of notification history for the current user
-  Stream<List<NotificationHistoryItem>> getHistoryStream() {
-    if (_uid == null) return Stream.value([]);
+  Stream<List<NotificationHistoryItem>> getHistoryStream() async* {
+    await for (final user in _auth.authStateChanges()) {
+      if (user == null) {
+        yield [];
+        continue;
+      }
 
-    return _firestore
-        .collection('users')
-        .doc(_uid)
-        .collection('notificationHistory')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => NotificationHistoryItem.fromFirestore(doc))
-          .toList();
-    });
+      yield* _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('notificationHistory')
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) {
+            return snapshot.docs
+                .map((doc) => NotificationHistoryItem.fromFirestore(doc))
+                .toList();
+          });
+    }
   }
 
   /// Mark a notification as read

@@ -38,22 +38,33 @@ class AirQualityAlert {
       aqi: (data['aqi'] as num?)?.toInt() ?? 0,
       aqiIndex: (data['aqiIndex'] as num?)?.toInt() ?? 0,
       category: data['category'] ?? 'Alert',
-      message: data['message'] ?? (data['healthAdvice'] ?? 'High pollution level detected'),
-      location: data['location'] ?? 'Unknown',
-      createdAt: (data['timestamp'] as Timestamp? ?? data['createdAt'] as Timestamp? ?? Timestamp.now()).toDate(),
+      message:
+          data['message'] ??
+          (data['healthAdvice'] ?? 'High pollution level detected'),
+      location: data['locationName'] ?? data['location'] ?? 'Unknown',
+      createdAt:
+          (data['timestamp'] as Timestamp? ??
+                  data['createdAt'] as Timestamp? ??
+                  Timestamp.now())
+              .toDate(),
       isRead: data['isRead'] ?? false,
       type: _parseType(data['type']),
       healthAdvice: data['healthAdvice'],
-      triggeredThreshold: (data['triggeredThreshold'] as num?)?.toInt() ?? 0,
+      triggeredThreshold:
+          (data['threshold'] as num?)?.toInt() ??
+          (data['triggeredThreshold'] as num?)?.toInt() ??
+          0,
       pollutants: Map<String, double>.from(data['pollutants'] ?? {}),
     );
   }
 
   static AlertType _parseType(dynamic type) {
     if (type == null) return AlertType.alert;
-    return AlertType.values.firstWhere(
-      (e) => e.name == type.toString(),
-      orElse: () => AlertType.alert,
-    );
+    final normalized = type.toString().toLowerCase();
+    if (normalized == 'summary') return AlertType.summary;
+    if (normalized == 'health' || normalized == 'healthadvice') {
+      return AlertType.health;
+    }
+    return AlertType.alert;
   }
 }

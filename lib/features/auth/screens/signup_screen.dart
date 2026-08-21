@@ -40,11 +40,20 @@ class _SignupScreenState extends State<SignupScreen> {
         _passwordController.text.trim(),
         _nameController.text.trim(),
       );
-      // Success is handled by AuthWrapper in main.dart
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account created successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Account created successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
+        // After successful registration, we sign out to ensure the user lands 
+        // on the login page to sign in manually, as requested.
+        await _authService.signOut();
+        if (mounted) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       debugPrint('Detailed Signup Error: $e');

@@ -5,9 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../core/models/air_quality_model.dart';
 import '../core/services/air_quality_service.dart';
 import '../core/services/notification_service.dart';
-import '../features/alerts/services/alert_preference_service.dart';
 import '../features/alerts/services/alert_service.dart';
-import '../features/alerts/models/air_quality_alert.dart';
 import '../core/models/report_item.dart';
 import '../core/services/report_service.dart';
 
@@ -17,8 +15,8 @@ class UserDashboard extends StatefulWidget {
   final VoidCallback? onViewMap;
 
   const UserDashboard({
-    super.key, 
-    required this.location, 
+    super.key,
+    required this.location,
     this.onViewAllReports,
     this.onViewMap,
   });
@@ -29,11 +27,11 @@ class UserDashboard extends StatefulWidget {
 
 class _UserDashboardState extends State<UserDashboard> {
   final AirQualityService _aqiService = AirQualityService();
-  final AlertPreferenceService _prefService = AlertPreferenceService();
   final NotificationService _notificationService = NotificationService();
   final AlertService _alertService = AlertService();
 
   AirQualityModel? _data;
+  List<AirQualityModel> _historyData = [];
   bool _isLoading = true;
   String? _error;
   DateTime? _lastUpdated;
@@ -53,26 +51,40 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 
   Future<void> _fetchData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final data = await _aqiService.fetchCurrentAirQuality(
+      // 1. Fetch current AQI
+      final current = await _aqiService.fetchCurrentAirQuality(
         widget.location.latitude,
         widget.location.longitude,
       );
-      
+
+      // 2. Fetch last 24 hours of history for the graph
+      final now = DateTime.now();
+      final history = await _aqiService.fetchAirQualityHistory(
+        widget.location.latitude,
+        widget.location.longitude,
+        now.subtract(const Duration(hours: 24)),
+        now,
+      );
+
+      if (!mounted) return;
       setState(() {
-        _data = data;
+        _data = current;
+        _historyData = history
+          ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _isLoading = false;
         _lastUpdated = DateTime.now();
       });
 
-      _checkAlertThreshold(data);
-      
+      await _checkAlertThreshold(current);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -81,27 +93,21 @@ class _UserDashboardState extends State<UserDashboard> {
   }
 
   Future<void> _checkAlertThreshold(AirQualityModel currentData) async {
-    _prefService.getAlertPreference().first.then((pref) {
-      if (pref != null && pref.enabled) {
-        // Compare on the 1-5 scale
-        if (currentData.aqiIndex >= pref.threshold) {
-          // 1. Show Local Notification
-          _notificationService.showAqiAlert(
-            aqi: currentData.aqi,
-            category: currentData.aqiCategory,
-            advice: currentData.healthAdvice,
-            location: pref.locationName,
-          );
+    final decision = await _alertService.processTriggeredAlert(
+      data: currentData,
+    );
+    if (!decision.shouldNotify) return;
 
-          // 2. Save to Firestore History for the Alerts tab
-          _alertService.saveTriggeredAlert(
-            data: currentData,
-            locationName: pref.locationName,
-            threshold: pref.threshold,
-          );
-        }
-      }
-    });
+    try {
+      await _notificationService.showAqiAlert(
+        aqi: currentData.aqi,
+        category: currentData.aqiCategory,
+        advice: currentData.healthAdvice,
+        location: decision.locationName,
+      );
+    } catch (e) {
+      debugPrint('Local notification display failed: $e');
+    }
   }
 
   @override
@@ -138,23 +144,20 @@ class _UserDashboardState extends State<UserDashboard> {
             const SizedBox(height: 16),
             _PollutantGrid(data: _data!),
             const SizedBox(height: 24),
-            
+
             _LocationPreview(
-              location: widget.location, 
+              location: widget.location,
               aqi: _data!.aqi,
               onViewFull: widget.onViewMap,
             ),
             const SizedBox(height: 24),
-            
-            _HistoryChart(),
+
+            _HistoryChart(data: _historyData),
             const SizedBox(height: 24),
-            
-            _AlertsSection(alertService: _alertService),
-            const SizedBox(height: 24),
-            
+
             _ReportsSection(onViewAll: widget.onViewAllReports),
             const SizedBox(height: 24),
-            
+
             ElevatedButton.icon(
               onPressed: _fetchData,
               icon: const Icon(Icons.refresh),
@@ -194,26 +197,50 @@ class _AqiHeroCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text('Current Location', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text(
+            'Current Location',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
           Text(
             '${data.latitude.toStringAsFixed(3)}, ${data.longitude.toStringAsFixed(3)}',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 20),
-          const Text('US AQI', style: TextStyle(color: Colors.white70, fontSize: 16)),
+          const Text(
+            'US AQI',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
+          ),
           Text(
             '${data.aqi}',
-            style: const TextStyle(color: Colors.white, fontSize: 72, fontWeight: FontWeight.bold, height: 1),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 72,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
           ),
           Text(
             data.aqiCategory,
-            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
-          Text(
-            data.healthAdvice,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.notifications_none, size: 14, color: Colors.white70),
+              SizedBox(width: 6),
+              Text(
+                'Alerts are available in Notifications',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
           ),
           if (lastUpdated != null) ...[
             const SizedBox(height: 12),
@@ -221,7 +248,7 @@ class _AqiHeroCard extends StatelessWidget {
               'Updated: ${DateFormat('hh:mm a').format(lastUpdated!)}',
               style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
-          ]
+          ],
         ],
       ),
     );
@@ -258,19 +285,30 @@ class _PollutantGrid extends StatelessWidget {
         return Card(
           elevation: 0,
           color: Colors.grey.shade100,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(p.$1, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  p.$1,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
                 Text(
                   p.$2.toStringAsFixed(1),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                Text(p.$3, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                Text(
+                  p.$3,
+                  style: const TextStyle(color: Colors.grey, fontSize: 10),
+                ),
               ],
             ),
           ),
@@ -286,7 +324,7 @@ class _LocationPreview extends StatelessWidget {
   final VoidCallback? onViewFull;
 
   const _LocationPreview({
-    required this.location, 
+    required this.location,
     required this.aqi,
     this.onViewFull,
   });
@@ -303,7 +341,10 @@ class _LocationPreview extends StatelessWidget {
               children: [
                 Icon(Icons.location_on_outlined, size: 20),
                 SizedBox(width: 8),
-                Text('Your Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'Your Location',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ],
             ),
             TextButton(onPressed: onViewFull, child: const Text('View Full')),
@@ -321,7 +362,10 @@ class _LocationPreview extends StatelessWidget {
             child: Stack(
               children: [
                 GoogleMap(
-                  initialCameraPosition: CameraPosition(target: location, zoom: 12),
+                  initialCameraPosition: CameraPosition(
+                    target: location,
+                    zoom: 12,
+                  ),
                   liteModeEnabled: true,
                   zoomControlsEnabled: false,
                   myLocationButtonEnabled: false,
@@ -342,12 +386,20 @@ class _LocationPreview extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black12, blurRadius: 8),
+                      ],
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('$aqi', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text(
+                          '$aqi',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const Icon(Icons.air, size: 14, color: Colors.teal),
                       ],
                     ),
@@ -363,155 +415,179 @@ class _LocationPreview extends StatelessWidget {
 }
 
 class _HistoryChart extends StatelessWidget {
+  final List<AirQualityModel> data;
+  const _HistoryChart({required this.data});
+
   @override
   Widget build(BuildContext context) {
+    final sorted = [...data]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('24-Hour History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text(
+          '24-Hour History',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 16),
         Container(
           height: 200,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(10, 20, 20, 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: LineChart(
-            LineChartData(
-              gridData: const FlGridData(show: false),
-              titlesData: FlTitlesData(
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      if (value % 6 == 0) {
-                        return Text('${value.toInt()}h', style: const TextStyle(fontSize: 10, color: Colors.grey));
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: const [
-                    FlSpot(0, 45), FlSpot(4, 52), FlSpot(8, 48),
-                    FlSpot(12, 68), FlSpot(16, 62), FlSpot(20, 55), FlSpot(24, 42),
-                  ],
-                  isCurved: true,
-                  color: Colors.teal,
-                  barWidth: 3,
-                  dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    gradient: LinearGradient(
-                      colors: [Colors.teal.withValues(alpha: 0.2), Colors.teal.withValues(alpha: 0.0)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+          child: sorted.isEmpty
+              ? const Center(child: Text('Fetching history...'))
+              : LineChart(
+                  (() {
+                    final start = sorted.first.timestamp;
+                    final spots = sorted
+                        .map(
+                          (entry) => FlSpot(
+                            entry.timestamp.difference(start).inMinutes / 60.0,
+                            entry.aqi.toDouble(),
+                          ),
+                        )
+                        .toList();
+                    final xMax = spots.last.x < 1 ? 1.0 : spots.last.x;
+                    final minAqi = sorted
+                        .map((e) => e.aqi)
+                        .reduce((a, b) => a < b ? a : b);
+                    final maxAqi = sorted
+                        .map((e) => e.aqi)
+                        .reduce((a, b) => a > b ? a : b);
+                    final minY = ((minAqi ~/ 25) * 25 - 10)
+                        .clamp(0, 500)
+                        .toDouble();
+                    final rawMaxY = ((maxAqi / 25).ceil() * 25 + 10)
+                        .clamp(0, 500)
+                        .toDouble();
+                    final maxY = rawMaxY <= minY ? minY + 25 : rawMaxY;
 
-class _AlertsSection extends StatelessWidget {
-  final AlertService alertService;
-  const _AlertsSection({required this.alertService});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('Recent Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            StreamBuilder<int>(
-              stream: alertService.getUnreadCount(),
-              builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
-                if (count == 0) return const SizedBox.shrink();
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
-                  child: Text('$count new', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                );
-              },
-            ),
-          ],
+                    return LineChartData(
+                      minX: 0,
+                      maxX: xMax,
+                      minY: minY,
+                      maxY: maxY,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: 50,
+                        getDrawingHorizontalLine: (_) =>
+                            FlLine(color: Colors.grey.shade200, strokeWidth: 1),
+                      ),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 34,
+                            interval: 50,
+                            getTitlesWidget: (value, meta) => Text(
+                              value.toInt().toString(),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 6,
+                            getTitlesWidget: (value, meta) {
+                              if (value < 0 || value > xMax) {
+                                return const SizedBox.shrink();
+                              }
+                              final time = start.add(
+                                Duration(minutes: (value * 60).round()),
+                              );
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  DateFormat('ha').format(time).toLowerCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          color: Colors.teal,
+                          barWidth: 3,
+                          dotData: FlDotData(show: spots.length <= 2),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.teal.withValues(alpha: 0.2),
+                                Colors.teal.withValues(alpha: 0.0),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  })(),
+                ),
         ),
         const SizedBox(height: 12),
-        StreamBuilder<List<AirQualityAlert>>(
-          stream: alertService.getAlertsStream(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Text('No active alerts for your area.'),
-                ),
-              );
-            }
-            return Column(
-              children: snapshot.data!.take(2).map((alert) => _AlertCard(alert: alert)).toList(),
-            );
-          },
+        const SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _ChartLegend(color: Colors.green, label: 'Good'),
+              SizedBox(width: 12),
+              _ChartLegend(color: Colors.yellow, label: 'Fair'),
+              SizedBox(width: 12),
+              _ChartLegend(color: Colors.orange, label: 'Moderate'),
+              SizedBox(width: 12),
+              _ChartLegend(color: Colors.red, label: 'Poor'),
+              SizedBox(width: 12),
+              _ChartLegend(color: Colors.purple, label: 'Very Poor'),
+            ],
+          ),
         ),
       ],
     );
   }
 }
 
-class _AlertCard extends StatelessWidget {
-  final AirQualityAlert alert;
-  const _AlertCard({required this.alert});
+class _ChartLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _ChartLegend({required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.orange.shade200),
-        boxShadow: [BoxShadow(color: Colors.orange.withValues(alpha: 0.05), blurRadius: 10, spreadRadius: 2)],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(alert.message, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                Text(
-                  '${DateTime.now().difference(alert.createdAt).inMinutes}m ago',
-                  style: const TextStyle(color: Colors.grey, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
     );
   }
 }
@@ -519,59 +595,6 @@ class _AlertCard extends StatelessWidget {
 class _ReportsSection extends StatelessWidget {
   final VoidCallback? onViewAll;
   const _ReportsSection({this.onViewAll});
-
-  void _showSubmitDialog(BuildContext context) {
-    final reportService = ReportService();
-    final locController = TextEditingController();
-    final textController = TextEditingController();
-    bool isSubmitting = false;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Share Air Quality Update'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: locController, 
-                enabled: !isSubmitting,
-                decoration: const InputDecoration(labelText: 'Location'),
-              ),
-              TextField(
-                controller: textController, 
-                enabled: !isSubmitting,
-                decoration: const InputDecoration(labelText: 'Status/Observation'), 
-                maxLines: 2,
-              ),
-              if (isSubmitting) const LinearProgressIndicator(),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: isSubmitting ? null : () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: isSubmitting ? null : () async {
-                if (locController.text.isNotEmpty && textController.text.isNotEmpty) {
-                  setDialogState(() => isSubmitting = true);
-                  try {
-                    await reportService.submitReport(location: locController.text, text: textController.text);
-                    if (context.mounted) Navigator.pop(context);
-                  } catch (e) {
-                    setDialogState(() => isSubmitting = false);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  }
-                }
-              },
-              child: const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -587,13 +610,9 @@ class _ReportsSection extends StatelessWidget {
               children: [
                 const Icon(Icons.chat_bubble_outline, size: 20),
                 const SizedBox(width: 8),
-                const Text('Live Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _showSubmitDialog(context),
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.teal, size: 20),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                const Text(
+                  'Live Reports',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -607,11 +626,19 @@ class _ReportsSection extends StatelessWidget {
             if (!snapshot.hasData || snapshot.data!.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(child: Text('No reports available', style: TextStyle(color: Colors.grey))),
+                child: Center(
+                  child: Text(
+                    'No reports available',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
               );
             }
             return Column(
-              children: snapshot.data!.take(3).map((report) => _ReportCard(report: report)).toList(),
+              children: snapshot.data!
+                  .take(3)
+                  .map((report) => _ReportCard(report: report))
+                  .toList(),
             );
           },
         ),
@@ -642,7 +669,10 @@ class _ReportCard extends StatelessWidget {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: Colors.blue.shade600,
-                child: Text(report.initials, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                child: Text(
+                  report.initials,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -651,31 +681,67 @@ class _ReportCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(report.user, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(
+                          report.user,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: Row(
                             children: [
-                              const Icon(Icons.check_circle, color: Colors.green, size: 10),
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 10,
+                              ),
                               const SizedBox(width: 2),
-                              Text('${report.confirm}', style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                              Text(
+                                '${report.confirm}',
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    Text(report.location, style: const TextStyle(color: Colors.blue, fontSize: 12)),
+                    Text(
+                      report.location,
+                      style: const TextStyle(color: Colors.blue, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
-              Text(report.timeAgo, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+              Text(
+                report.timeAgo,
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
               const Icon(Icons.chevron_right, color: Colors.grey),
             ],
           ),
           const SizedBox(height: 12),
-          Text(report.text, style: const TextStyle(fontSize: 13, height: 1.5, color: Colors.black87)),
+          Text(
+            report.text,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: Colors.black87,
+            ),
+          ),
         ],
       ),
     );

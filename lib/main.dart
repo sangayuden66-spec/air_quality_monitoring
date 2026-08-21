@@ -8,9 +8,11 @@ import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'features/alerts/screens/alerts_screen.dart';
 import 'features/alerts/services/alert_service.dart';
+import 'features/alerts/services/alert_preference_service.dart';
 import 'features/alerts/screens/alert_settings_screen.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'screens/user_dashboard.dart';
+import 'screens/analytics_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/map_screen.dart';
 
@@ -19,12 +21,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    
+
     final notificationService = NotificationService();
     await notificationService.init();
     await notificationService.requestPermissions();
@@ -35,15 +37,16 @@ void main() async {
     // Handle taps on local notifications (foreground FCM)
     notificationService.onNotificationTap = (payload) {
       if (payload == 'aqi_dashboard' || payload == 'aqi_alert') {
-        // Switch to the first tab (Home/Dashboard)
         navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => const AlertsScreen()),
+        );
       }
     };
-    
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
-  
+
   runApp(const MyApp());
 }
 
@@ -77,13 +80,15 @@ class AuthWrapper extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
-        
+
         if (snapshot.hasData) {
           return const MainScreen();
         }
-        
+
         return const LoginScreen();
       },
     );
@@ -101,6 +106,8 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   LatLng _selectedLocation = const LatLng(-35.2809, 149.1300);
   final AlertService _alertService = AlertService();
+  final AlertPreferenceService _alertPreferenceService =
+      AlertPreferenceService();
 
   @override
   void initState() {
@@ -119,16 +126,34 @@ class _MainScreenState extends State<MainScreen> {
       _selectedLocation = newLocation;
       _selectedIndex = 0;
     });
+    _syncAlertPreferenceLocation(newLocation);
+  }
+
+  Future<void> _syncAlertPreferenceLocation(LatLng location) async {
+    try {
+      await _alertPreferenceService.syncLocationWithSelection(
+        latitude: location.latitude,
+        longitude: location.longitude,
+      );
+    } catch (e) {
+      debugPrint('Failed to auto-sync alert location: $e');
+    }
   }
 
   String _getAppBarTitle() {
     switch (_selectedIndex) {
-      case 0: return 'User Dashboard';
-      case 1: return 'Analytics';
-      case 2: return 'Location Map';
-      case 3: return 'Community Reports';
-      case 4: return 'Settings';
-      default: return 'User Dashboard';
+      case 0:
+        return 'User Dashboard';
+      case 1:
+        return 'Analytics';
+      case 2:
+        return 'Location Map';
+      case 3:
+        return 'Community Reports';
+      case 4:
+        return 'Settings';
+      default:
+        return 'User Dashboard';
     }
   }
 
@@ -140,47 +165,58 @@ class _MainScreenState extends State<MainScreen> {
         onViewAllReports: () => _onItemTapped(3),
         onViewMap: () => _onItemTapped(2),
       ),
-      const Center(child: Text('Analytics coming soon')),
+      AnalyticsScreen(
+        location: _selectedLocation,
+        onBackToHome: () => _onItemTapped(0),
+      ),
       MapScreen(onLocationConfirmed: _updateGlobalLocation),
       const ReportsScreen(),
       const AlertSettingsScreen(),
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          _getAppBarTitle(),
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          StreamBuilder<int>(
-            stream: _alertService.getUnreadCount(),
-            builder: (context, snapshot) {
-              final count = snapshot.data ?? 0;
-              return IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const AlertsScreen()),
-                  );
-                },
-                icon: Badge(
-                  label: Text('$count'),
-                  isLabelVisible: count > 0,
-                  child: const Icon(Icons.notifications_none, color: Colors.black, size: 28),
+      appBar: _selectedIndex == 1
+          ? null
+          : AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: Text(
+                _getAppBarTitle(),
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
                 ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: screens,
-      ),
+              ),
+              actions: [
+                StreamBuilder<int>(
+                  stream: _alertService.getUnreadCount(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data ?? 0;
+                    return IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AlertsScreen(),
+                          ),
+                        );
+                      },
+                      icon: Badge(
+                        label: Text('$count'),
+                        isLabelVisible: count > 0,
+                        child: const Icon(
+                          Icons.notifications_none,
+                          color: Colors.black,
+                          size: 28,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+      body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
@@ -190,11 +226,23 @@ class _MainScreenState extends State<MainScreen> {
         showSelectedLabels: true,
         showUnselectedLabels: true,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Analytics'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'Analytics',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: 'Map'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Reports'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Reports',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            label: 'Settings',
+          ),
         ],
       ),
     );
