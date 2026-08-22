@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -14,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
-  
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -44,8 +45,8 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         final errorString = e.toString().toLowerCase();
         // Firebase Auth now uses 'invalid-credential' for both wrong password and user not found
-        if (errorString.contains('invalid-credential') || 
-            errorString.contains('user-not-found') || 
+        if (errorString.contains('invalid-credential') ||
+            errorString.contains('user-not-found') ||
             errorString.contains('wrong-password')) {
           _errorMessage = 'Invalid email or password.';
         } else if (errorString.contains('user-disabled')) {
@@ -55,7 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (errorString.contains('network-request-failed')) {
           _errorMessage = 'No internet connection. Please check your network.';
         } else {
-          _errorMessage = 'Login failed. Please check your details and try again.';
+          _errorMessage =
+              'Login failed. Please check your details and try again.';
         }
       });
     } finally {
@@ -82,22 +84,32 @@ class _LoginScreenState extends State<LoginScreen> {
           keyboardType: TextInputType.emailAddress,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () async {
-              if (resetController.text.isNotEmpty && resetController.text.contains('@')) {
+              if (resetController.text.isNotEmpty &&
+                  resetController.text.contains('@')) {
                 try {
                   await _authService.resetPassword(resetController.text.trim());
                   if (mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password reset link sent to your email.')),
+                      const SnackBar(
+                        content: Text(
+                          'Password reset link sent to your email.',
+                        ),
+                      ),
                     );
                   }
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: ${e.toString().split(']').last}')),
+                      SnackBar(
+                        content: Text('Error: ${e.toString().split(']').last}'),
+                      ),
                     );
                   }
                 }
@@ -113,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppThemeColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -124,7 +136,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.air, size: 80, color: Colors.teal),
+                  const Icon(
+                    Icons.air,
+                    size: 80,
+                    color: AppThemeColors.primary,
+                  ),
                   const SizedBox(height: 32),
                   const Text(
                     'Welcome Back',
@@ -139,7 +155,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text(
                     'Sign in to monitor your air quality',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppThemeColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 48),
                   if (_errorMessage != null) ...[
@@ -152,7 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         _errorMessage!,
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 13,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -164,11 +186,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Email',
                       prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter your email';
-                      if (!value.contains('@')) return 'Please enter a valid email';
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
                       return null;
                     },
                   ),
@@ -179,11 +207,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) return 'Please enter your password';
-                      if (value.length < 6) return 'Password must be at least 6 characters';
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your password';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
                       return null;
                     },
                   ),
@@ -191,25 +225,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: _showForgotPasswordDialog,
-                      child: const Text('Forgot Password?', style: TextStyle(color: Colors.grey)),
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
                           )
-                        : const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        : const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -220,12 +263,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const SignupScreen()),
+                            MaterialPageRoute(
+                              builder: (context) => const SignupScreen(),
+                            ),
                           );
                         },
                         child: const Text(
                           'Sign Up',
-                          style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: AppThemeColors.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

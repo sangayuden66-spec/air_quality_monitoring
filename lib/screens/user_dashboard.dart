@@ -8,6 +8,7 @@ import '../core/services/notification_service.dart';
 import '../features/alerts/services/alert_service.dart';
 import '../core/models/report_item.dart';
 import '../core/services/report_service.dart';
+import '../core/theme/app_theme.dart';
 
 class UserDashboard extends StatefulWidget {
   final LatLng location;
@@ -134,37 +135,40 @@ class _UserDashboardState extends State<UserDashboard> {
 
     return RefreshIndicator(
       onRefresh: _fetchData,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _AqiHeroCard(data: _data!, lastUpdated: _lastUpdated),
-            const SizedBox(height: 16),
-            _PollutantGrid(data: _data!),
-            const SizedBox(height: 24),
+      child: Container(
+        color: AppThemeColors.background,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _AqiHeroCard(data: _data!, lastUpdated: _lastUpdated),
+              const SizedBox(height: 16),
+              _PollutantGrid(data: _data!),
+              const SizedBox(height: 24),
 
-            _LocationPreview(
-              location: widget.location,
-              aqi: _data!.aqi,
-              onViewFull: widget.onViewMap,
-            ),
-            const SizedBox(height: 24),
+              _LocationPreview(
+                location: widget.location,
+                aqi: _data!.aqi,
+                onViewFull: widget.onViewMap,
+              ),
+              const SizedBox(height: 24),
 
-            _HistoryChart(data: _historyData),
-            const SizedBox(height: 24),
+              _HistoryChart(data: _historyData),
+              const SizedBox(height: 24),
 
-            _ReportsSection(onViewAll: widget.onViewAllReports),
-            const SizedBox(height: 24),
+              _ReportsSection(onViewAll: widget.onViewAllReports),
+              const SizedBox(height: 24),
 
-            ElevatedButton.icon(
-              onPressed: _fetchData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Data'),
-            ),
-            const SizedBox(height: 16),
-          ],
+              ElevatedButton.icon(
+                onPressed: _fetchData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh Data'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -284,9 +288,10 @@ class _PollutantGrid extends StatelessWidget {
         final p = pollutants[index];
         return Card(
           elevation: 0,
-          color: Colors.grey.shade100,
+          color: AppThemeColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppThemeColors.border),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -355,7 +360,8 @@ class _LocationPreview extends StatelessWidget {
           height: 180,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: Colors.grey.shade100,
+            color: AppThemeColors.surface,
+            border: Border.all(color: AppThemeColors.border),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
@@ -374,8 +380,10 @@ class _LocationPreview extends StatelessWidget {
                       circleId: const CircleId('aqi_area'),
                       center: location,
                       radius: 2000,
-                      fillColor: Colors.teal.withValues(alpha: 0.1),
-                      strokeColor: Colors.teal.withValues(alpha: 0.3),
+                      fillColor: AppThemeColors.primary.withValues(alpha: 0.1),
+                      strokeColor: AppThemeColors.primary.withValues(
+                        alpha: 0.3,
+                      ),
                       strokeWidth: 1,
                     ),
                   },
@@ -400,7 +408,11 @@ class _LocationPreview extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Icon(Icons.air, size: 14, color: Colors.teal),
+                        const Icon(
+                          Icons.air,
+                          size: 14,
+                          color: AppThemeColors.primary,
+                        ),
                       ],
                     ),
                   ),
@@ -434,9 +446,9 @@ class _HistoryChart extends StatelessWidget {
           height: 200,
           padding: const EdgeInsets.fromLTRB(10, 20, 20, 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppThemeColors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: AppThemeColors.border),
           ),
           child: sorted.isEmpty
               ? const Center(child: Text('Fetching history...'))
@@ -529,15 +541,15 @@ class _HistoryChart extends StatelessWidget {
                         LineChartBarData(
                           spots: spots,
                           isCurved: true,
-                          color: Colors.teal,
+                          color: AppThemeColors.primary,
                           barWidth: 3,
                           dotData: FlDotData(show: spots.length <= 2),
                           belowBarData: BarAreaData(
                             show: true,
                             gradient: LinearGradient(
                               colors: [
-                                Colors.teal.withValues(alpha: 0.2),
-                                Colors.teal.withValues(alpha: 0.0),
+                                AppThemeColors.primary.withValues(alpha: 0.2),
+                                AppThemeColors.primary.withValues(alpha: 0.0),
                               ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -657,9 +669,9 @@ class _ReportCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppThemeColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: AppThemeColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -721,7 +733,10 @@ class _ReportCard extends StatelessWidget {
                     ),
                     Text(
                       report.location,
-                      style: const TextStyle(color: Colors.blue, fontSize: 12),
+                      style: const TextStyle(
+                        color: AppThemeColors.primary,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),

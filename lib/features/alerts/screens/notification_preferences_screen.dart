@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/theme/app_theme.dart';
 import '../services/alert_preference_service.dart';
 import '../../../screens/map_screen.dart';
 
@@ -78,6 +79,7 @@ class _NotificationPreferencesScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppThemeColors.background,
       appBar: AppBar(
         title: const Text('Alert Preferences'),
         actions: [
@@ -87,7 +89,7 @@ class _NotificationPreferencesScreenState
               child: const Text(
                 'SAVE',
                 style: TextStyle(
-                  color: Colors.teal,
+                  color: AppThemeColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),

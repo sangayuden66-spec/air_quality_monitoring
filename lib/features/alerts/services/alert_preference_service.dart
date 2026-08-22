@@ -103,8 +103,15 @@ class AlertPreferenceService {
     required double latitude,
     required double longitude,
     String? locationName,
+    bool updateExisting = true,
   }) async {
     if (_uid == null) return;
+    if (latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      throw Exception('Invalid coordinates provided for alert location.');
+    }
 
     final docRef = _firestore
         .collection('users')
@@ -132,10 +139,13 @@ class AlertPreferenceService {
       return;
     }
 
-    final data =
-        existing.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+    final data = existing.data() ?? <String, dynamic>{};
     final prevLat = (data['latitude'] as num?)?.toDouble();
     final prevLon = (data['longitude'] as num?)?.toDouble();
+    if (!updateExisting && prevLat != null && prevLon != null) {
+      return;
+    }
+
     final locationChanged =
         prevLat == null ||
         prevLon == null ||

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/models/report_item.dart';
 import '../core/services/report_service.dart';
+import '../core/theme/app_theme.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -29,13 +30,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
               TextField(
                 controller: _locationController,
                 enabled: !isSubmitting,
-                decoration: const InputDecoration(labelText: 'Location (e.g. Woden)'),
+                decoration: const InputDecoration(
+                  labelText: 'Location (e.g. Woden)',
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _textController,
                 enabled: !isSubmitting,
-                decoration: const InputDecoration(labelText: 'What are you seeing/feeling?'),
+                decoration: const InputDecoration(
+                  labelText: 'What are you seeing/feeling?',
+                ),
                 maxLines: 3,
               ),
               if (isSubmitting)
@@ -47,51 +52,60 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.pop(dialogContext),
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: isSubmitting ? null : () async {
-                final loc = _locationController.text.trim();
-                final msg = _textController.text.trim();
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final loc = _locationController.text.trim();
+                      final msg = _textController.text.trim();
 
-                if (loc.isEmpty || msg.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill in all fields')),
-                  );
-                  return;
-                }
+                      if (loc.isEmpty || msg.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please fill in all fields'),
+                          ),
+                        );
+                        return;
+                      }
 
-                setDialogState(() => isSubmitting = true);
-                
-                try {
-                  // Attempt to submit with a timeout handled in the service
-                  await _reportService.submitReport(location: loc, text: msg);
-                  
-                  if (mounted) {
-                    _locationController.clear();
-                    _textController.clear();
-                    Navigator.pop(dialogContext); // Close dialog
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Report submitted successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  setDialogState(() => isSubmitting = false);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Submission failed: $e'),
-                        backgroundColor: Colors.red,
-                        duration: const Duration(seconds: 5),
-                      ),
-                    );
-                  }
-                }
-              },
+                      setDialogState(() => isSubmitting = true);
+
+                      try {
+                        // Attempt to submit with a timeout handled in the service
+                        await _reportService.submitReport(
+                          location: loc,
+                          text: msg,
+                        );
+
+                        if (mounted) {
+                          _locationController.clear();
+                          _textController.clear();
+                          Navigator.pop(dialogContext); // Close dialog
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Report submitted successfully!'),
+                              backgroundColor: Color(0xFF10B981),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Submission failed: $e'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                        }
+                      }
+                    },
               child: const Text('Submit'),
             ),
           ],
@@ -107,9 +121,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         stream: _reportService.getReportsStream(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Error loading reports: ${snapshot.error}'));
+            return Center(
+              child: Text('Error loading reports: ${snapshot.error}'),
+            );
           }
-          
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -123,7 +139,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 children: [
                   Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text('No reports yet. Be the first to share!', style: TextStyle(color: Colors.grey)),
+                  Text(
+                    'No reports yet. Be the first to share!',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
@@ -138,13 +157,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppThemeColors.surface,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
+                  border: Border.all(color: AppThemeColors.border),
+                  boxShadow: const [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: Color(0x0F111827),
                       blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
@@ -156,7 +176,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       backgroundColor: const Color(0xFF5B6EF0),
                       child: Text(
                         report.initials,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -169,17 +192,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             children: [
                               Text(
                                 report.user,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                               Text(
                                 report.timeAgo,
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
                           Text(
                             report.location,
-                            style: const TextStyle(fontSize: 12, color: Colors.teal),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppThemeColors.primary,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -195,7 +227,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 label: 'Confirm',
                                 textColor: const Color(0xFF0F9D75),
                                 backgroundColor: const Color(0xFFE8F8F1),
-                                onTap: () => _reportService.confirmReport(report.id),
+                                onTap: () =>
+                                    _reportService.confirmReport(report.id),
                               ),
                               const SizedBox(width: 16),
                               _buildAction(
@@ -204,7 +237,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 label: 'Deny',
                                 textColor: const Color(0xFFDC2626),
                                 backgroundColor: const Color(0xFFFDEDED),
-                                onTap: () => _reportService.denyReport(report.id),
+                                onTap: () =>
+                                    _reportService.denyReport(report.id),
                               ),
                             ],
                           ),
@@ -220,7 +254,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showSubmitDialog,
-        backgroundColor: Colors.teal,
+        backgroundColor: AppThemeColors.primary,
         child: const Icon(Icons.add_comment, color: Colors.white),
       ),
     );

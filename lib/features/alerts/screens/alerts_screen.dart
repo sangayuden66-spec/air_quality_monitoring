@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
 import '../models/notification_history_item.dart';
 import '../services/notification_history_service.dart';
 
@@ -19,7 +20,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppThemeColors.background,
       body: StreamBuilder<List<NotificationHistoryItem>>(
         stream: _historyService.getHistoryStream(),
         builder: (context, snapshot) {
@@ -48,7 +49,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
               SafeArea(
                 bottom: false,
                 child: Container(
-                  color: Colors.white,
+                  color: AppThemeColors.surface,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
                   child: Column(
                     children: [
@@ -115,7 +116,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
               Expanded(
                 child: Container(
-                  color: const Color(0xFFF3F7FC),
+                  color: AppThemeColors.background,
                   child: filteredItems.isEmpty
                       ? Center(
                           child: Column(
@@ -190,10 +191,10 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = selected
-        ? const Color(0xFF043F3B)
+        ? const Color(0xFF235DC0)
         : const Color(0xFFD8DEE8);
-    final bgColor = selected ? const Color(0xFF064E49) : Colors.white;
-    final textColor = selected ? Colors.white : const Color(0xFF111827);
+    final bgColor = selected ? AppThemeColors.primary : AppThemeColors.surface;
+    final textColor = selected ? Colors.white : AppThemeColors.textPrimary;
 
     return InkWell(
       onTap: onTap,
@@ -249,7 +250,7 @@ class _FilterChip extends StatelessWidget {
                     '$badge',
                     style: TextStyle(
                       color: selected
-                          ? const Color(0xFF064E49)
+                          ? AppThemeColors.primary
                           : const Color(0xFF374151),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -363,7 +364,7 @@ class _HistoryListItem extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppThemeColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -473,7 +474,7 @@ class _HistoryListItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: item.isRead ? Colors.white : const Color(0xFFEEF5FF),
+        color: item.isRead ? AppThemeColors.surface : const Color(0xFFEEF5FF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE3E8F3)),
         boxShadow: const [

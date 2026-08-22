@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/theme/app_theme.dart';
 import '../models/notification_history_item.dart';
 import '../services/notification_history_service.dart';
 
@@ -11,10 +12,11 @@ class NotificationHistoryScreen extends StatelessWidget {
     final historyService = NotificationHistoryService();
 
     return Scaffold(
+      backgroundColor: AppThemeColors.background,
       appBar: AppBar(
         title: const Text('Alert History'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: AppThemeColors.surface,
+        foregroundColor: AppThemeColors.textPrimary,
         elevation: 0,
       ),
       body: StreamBuilder<List<NotificationHistoryItem>>(
@@ -94,7 +96,7 @@ class _HistoryCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: item.isRead ? Colors.grey.shade200 : Colors.teal.shade200,
+          color: item.isRead ? Colors.grey.shade200 : const Color(0xFF93C5FD),
         ),
       ),
       elevation: 0,

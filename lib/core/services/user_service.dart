@@ -30,14 +30,12 @@ class UserService {
         );
         await userDocRef.set(newUser.toMap());
 
-        // 2. Create Default Alert Preference (Requirement #1)
-        // Default to threshold 4 (Poor) so users get warned of bad air immediately
+        // 2. Create default alert preference without fixed coordinates.
+        // Coordinates are initialized from the device location during app startup.
         await userDocRef.collection('alerts').doc('default_alert').set({
           'enabled': true,
           'threshold': 4,
-          'locationName': 'My Home',
-          'latitude': -35.2809, // Canberra default
-          'longitude': 149.1300,
+          'locationName': 'Current Location',
           'lastNotifiedAqi': null,
           'lastNotifiedAt': null,
           'createdAt': FieldValue.serverTimestamp(),

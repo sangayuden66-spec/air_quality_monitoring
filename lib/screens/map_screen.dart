@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import '../core/theme/app_theme.dart';
 
 class MapScreen extends StatefulWidget {
   final Function(LatLng)? onLocationConfirmed;
@@ -79,14 +80,14 @@ class _MapScreenState extends State<MapScreen> {
         // Clear focus
         FocusScope.of(context).unfocus();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location not found')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Location not found')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error searching location: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error searching location: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -105,8 +106,8 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Location'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: AppThemeColors.surface,
+        foregroundColor: AppThemeColors.textPrimary,
         elevation: 0,
       ),
       body: Stack(
@@ -130,7 +131,7 @@ class _MapScreenState extends State<MapScreen> {
               zoomControlsEnabled: false,
               padding: const EdgeInsets.only(top: 80), // Padding for search bar
             ),
-          
+
           // Search Bar
           Positioned(
             top: 10,
@@ -142,7 +143,7 @@ class _MapScreenState extends State<MapScreen> {
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: const Color(0x1A111827),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),
@@ -152,13 +153,19 @@ class _MapScreenState extends State<MapScreen> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search for a location...',
-                  prefixIcon: const Icon(Icons.search, color: Colors.teal),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppThemeColors.primary,
+                  ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () => _searchController.clear(),
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
                 ),
                 onSubmitted: (_) => _searchLocation(),
               ),
@@ -210,8 +217,8 @@ class _MapScreenState extends State<MapScreen> {
                           icon: const Icon(Icons.my_location),
                           label: const Text('Current'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.teal,
+                            backgroundColor: AppThemeColors.surface,
+                            foregroundColor: AppThemeColors.primary,
                           ),
                         ),
                       ),
@@ -226,7 +233,7 @@ class _MapScreenState extends State<MapScreen> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
+                            backgroundColor: AppThemeColors.primary,
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('Use this location'),
