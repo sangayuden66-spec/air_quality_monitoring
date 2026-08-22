@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../services/auth_service.dart';
 
+enum _SignupRole { user, it, admin }
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -18,6 +20,18 @@ class _SignupScreenState extends State<SignupScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
+  _SignupRole _selectedRole = _SignupRole.user;
+
+  String get _selectedRoleValue {
+    switch (_selectedRole) {
+      case _SignupRole.admin:
+        return 'admin';
+      case _SignupRole.it:
+        return 'it';
+      case _SignupRole.user:
+        return 'user';
+    }
+  }
 
   @override
   void dispose() {
@@ -40,6 +54,7 @@ class _SignupScreenState extends State<SignupScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
         _nameController.text.trim(),
+        role: _selectedRoleValue,
       );
 
       if (mounted) {
@@ -116,6 +131,66 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: 48),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppThemeColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppThemeColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Account role',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppThemeColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SegmentedButton<_SignupRole>(
+                          segments: const [
+                            ButtonSegment<_SignupRole>(
+                              value: _SignupRole.user,
+                              label: Text('General User'),
+                              icon: Icon(Icons.person_outline),
+                            ),
+                            ButtonSegment<_SignupRole>(
+                              value: _SignupRole.it,
+                              label: Text('IT'),
+                              icon: Icon(Icons.computer_outlined),
+                            ),
+                            ButtonSegment<_SignupRole>(
+                              value: _SignupRole.admin,
+                              label: Text('Administrator'),
+                              icon: Icon(Icons.admin_panel_settings_outlined),
+                            ),
+                          ],
+                          selected: <_SignupRole>{_selectedRole},
+                          onSelectionChanged: (selection) {
+                            setState(() {
+                              _selectedRole = selection.first;
+                            });
+                          },
+                        ),
+                        if (_selectedRole == _SignupRole.admin ||
+                            _selectedRole == _SignupRole.it) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            _selectedRole == _SignupRole.admin
+                                ? 'Admin access is granted by role assignment in Firestore after registration.'
+                                : 'IT role is a label for now; elevated access is not enabled automatically.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppThemeColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   if (_errorMessage != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),

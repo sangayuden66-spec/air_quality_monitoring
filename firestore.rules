@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isActiveUser() {
+      return signedIn() &&
+          currentUserDoc().exists() &&
+          currentUserDoc().data.status == 'active';
+    }
+
+    function isPrivilegedUser() {
+      return isActiveUser() &&
+          (currentUserDoc().data.role == 'admin' ||
+              currentUserDoc().data.role == 'it');
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function selfRoleStatusUnchanged() {
+      return request.resource.data.role == resource.data.role &&
+          request.resource.data.status == resource.data.status;
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isPrivilegedUser();
+
+      allow create: if isSelf(uid) &&
+          request.resource.data.uid == uid &&
+          request.resource.data.role in ['user', 'admin', 'it'] &&
+          request.resource.data.status == 'active';
+
+      allow update: if
+          // Regular users can edit their own non-privileged fields only.
+          (isSelf(uid) &&
+              request.resource.data.uid == resource.data.uid &&
+              selfRoleStatusUnchanged()) ||
+          // Privileged users can edit any user, but cannot remove/change their own role/status.
+          (isPrivilegedUser() &&
+              request.resource.data.uid == resource.data.uid &&
+              (uid != request.auth.uid || selfRoleStatusUnchanged()));
+
+      allow delete: if false;
+
+      match /alerts/{alertId} {
+        allow read, write: if isSelf(uid) || isPrivilegedUser();
+      }
+
+      match /notificationHistory/{notificationId} {
+        allow read, write: if isSelf(uid) || isPrivilegedUser();
+      }
+
+      match /devices/{deviceId} {
+        allow read, write: if isSelf(uid) || isPrivilegedUser();
+      }
+    }
+
+    match /reports/{reportId} {
+      allow read: if isPrivilegedUser() ||
+          (isActiveUser() &&
+              (resource.data.visibility == 'visible' ||
+                  !('visibility' in resource.data)));
+
+      allow create: if isActiveUser() &&
+          request.resource.data.userId == request.auth.uid;
+
+      allow update: if isPrivilegedUser() ||
+          (isActiveUser() &&
+              request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                'confirmedBy',
+                'deniedBy',
+                'updatedAt'
+              ]));
+
+      allow delete: if isPrivilegedUser();
+    }
+
+    match /adminAuditLogs/{logId} {
+      allow read: if isPrivilegedUser();
+      allow create: if isPrivilegedUser() &&
+          request.resource.data.adminUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

@@ -23,21 +23,33 @@ class AuthService {
     }
   }
 
-  Future<UserCredential?> signUpWithEmail(String email, String password, String name) async {
+  Future<UserCredential?> signUpWithEmail(
+    String email,
+    String password,
+    String name, {
+    String role = 'user',
+  }) async {
     try {
+      final normalizedName = name.trim();
       final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
+
       if (credential.user != null) {
         // 1. Update Auth Profile
-        await credential.user!.updateDisplayName(name);
-        
+        if (normalizedName.isNotEmpty) {
+          await credential.user!.updateDisplayName(normalizedName);
+          await credential.user!.reload();
+        }
+
         // 2. Create Firestore Document Immediately
-        await _userService.ensureUserDocument(providedName: name);
+        await _userService.ensureUserDocument(
+          providedName: normalizedName.isEmpty ? null : normalizedName,
+          providedRole: role,
+        );
       }
-      
+
       return credential;
     } catch (e) {
       debugPrint('Sign up error: $e');

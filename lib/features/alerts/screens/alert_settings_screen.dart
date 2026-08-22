@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/user_service.dart';
 import '../services/alert_preference_service.dart';
 import '../../../screens/map_screen.dart';
 import '../../auth/services/auth_service.dart';
@@ -18,6 +19,7 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
   final AlertPreferenceService _prefService = AlertPreferenceService();
   final AuthService _authService = AuthService();
   final FcmService _fcmService = FcmService();
+  final UserService _userService = UserService();
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   bool _isLoading = true;
@@ -248,6 +250,66 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
     }
   }
 
+  Future<void> _openEditProfileDialog() async {
+    final currentUser = _firebaseAuth.currentUser;
+    final initialName = currentUser?.displayName?.trim() ?? '';
+    final controller = TextEditingController(text: initialName);
+
+    final submittedName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Profile Name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Display Name',
+            hintText: 'Enter your name',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || submittedName == null) return;
+    if (submittedName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Display name cannot be empty.')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await _userService.updateDisplayName(submittedName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   void _handleLogout() async {
     final bool confirm =
         await showDialog(
@@ -437,13 +499,7 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                         iconBg: const Color(0xFFEFF6FF),
                         title: 'Edit Profile',
                         subtitle: 'Update your personal information',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Edit profile coming soon'),
-                            ),
-                          );
-                        },
+                        onTap: _openEditProfileDialog,
                       ),
                       _SettingsTile(
                         icon: Icons.location_on_outlined,

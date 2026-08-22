@@ -4,10 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'firebase_options.dart';
+import 'core/services/access_control_service.dart';
 import 'core/services/user_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/theme/app_theme.dart';
+import 'features/admin/screens/admin_main_screen.dart';
 import 'features/alerts/screens/alerts_screen.dart';
 import 'features/alerts/services/alert_service.dart';
 import 'features/alerts/services/alert_preference_service.dart';
@@ -67,8 +69,31 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  final UserService _userService = UserService();
+  final AccessControlService _accessControlService = AccessControlService();
+  String? _ensuredUid;
+  String? _touchedUid;
+  bool _isHandlingDisabledUser = false;
+
+  void _ensureUserDoc(String uid) {
+    if (_ensuredUid == uid) return;
+    _ensuredUid = uid;
+    _userService.ensureUserDocument();
+  }
+
+  void _touchActivity(String uid) {
+    if (_touchedUid == uid) return;
+    _touchedUid = uid;
+    _userService.touchCurrentUserActivity();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +107,66 @@ class AuthWrapper extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          return const MainScreen();
+          final authUser = snapshot.data!;
+          _ensureUserDoc(authUser.uid);
+
+          return StreamBuilder<UserAccessState?>(
+            stream: _accessControlService.watchUserAccessByUid(authUser.uid),
+            builder: (context, accessSnapshot) {
+              if (accessSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (accessSnapshot.hasError) {
+                return Scaffold(
+                  body: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Text(
+                        'Failed to load account access state: ${accessSnapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              final access = accessSnapshot.data;
+              if (access == null) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (access.isDisabled) {
+                if (!_isHandlingDisabledUser) {
+                  _isHandlingDisabledUser = true;
+                  Future.microtask(() => FirebaseAuth.instance.signOut());
+                }
+                return const Scaffold(
+                  body: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Text(
+                        'Your account has been disabled. Please contact an administrator.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              _isHandlingDisabledUser = false;
+              _touchActivity(authUser.uid);
+
+              if (access.canAccessAdminRoutes) {
+                return const AdminMainScreen();
+              }
+              return const MainScreen();
+            },
+          );
         }
 
         return const LoginScreen();
