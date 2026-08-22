@@ -19,6 +19,7 @@ import 'screens/user_dashboard.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/map_screen.dart';
+import 'features/it/screens/it_main_screen.dart';
 
 // Global key for navigation without BuildContext
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -163,6 +164,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
               if (access.canAccessAdminRoutes) {
                 return const AdminMainScreen();
+              }
+              if (access.canAccessITRoutes) {
+                return const ItMainScreen();
               }
               return const MainScreen();
             },

@@ -18,6 +18,8 @@ class UserAccessState {
   String get normalizedStatus => status.trim().toLowerCase();
   bool get isActive => normalizedStatus == 'active';
   bool get isDisabled => normalizedStatus == 'disabled';
+  bool get isIT => normalizedRole == 'it';
+  bool get canAccessITRoutes => isIT && isActive;
   bool get isAdmin => normalizedRole == 'admin';
   bool get canAccessAdminRoutes => isAdmin && isActive;
 
