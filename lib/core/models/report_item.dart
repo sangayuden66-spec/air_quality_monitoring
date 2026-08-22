@@ -11,6 +11,9 @@ class ReportItem {
   final List<String> confirmedBy;
   final List<String> deniedBy;
   final String status; // pending | verified | hidden
+  final String visibility; // visible | hidden
+  final String moderationStatus; // pending | approved | rejected
+  final String severity; // low | medium | high
 
   const ReportItem({
     required this.id,
@@ -23,6 +26,9 @@ class ReportItem {
     required this.confirmedBy,
     required this.deniedBy,
     required this.status,
+    this.visibility = 'visible',
+    this.moderationStatus = 'pending',
+    this.severity = 'medium',
   });
 
   int get confirm => confirmedBy.length;
@@ -39,6 +45,9 @@ class ReportItem {
       'confirmedBy': confirmedBy,
       'deniedBy': deniedBy,
       'status': status,
+      'visibility': visibility,
+      'moderationStatus': moderationStatus,
+      'severity': severity,
     };
   }
 
@@ -55,6 +64,9 @@ class ReportItem {
       confirmedBy: List<String>.from(data['confirmedBy'] ?? []),
       deniedBy: List<String>.from(data['deniedBy'] ?? []),
       status: data['status'] ?? 'pending',
+      visibility: (data['visibility'] as String?) ?? 'visible',
+      moderationStatus: (data['moderationStatus'] as String?) ?? 'pending',
+      severity: (data['severity'] as String?) ?? 'medium',
     );
   }
 

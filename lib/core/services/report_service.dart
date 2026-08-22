@@ -7,7 +7,8 @@ class ReportService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  CollectionReference get _reportsCollection => _firestore.collection('reports');
+  CollectionReference get _reportsCollection =>
+      _firestore.collection('reports');
 
   /// Fetches a stream of all reports
   Stream<List<ReportItem>> getReportsStream() {
@@ -15,8 +16,10 @@ class ReportService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => ReportItem.fromFirestore(doc)).toList();
-    });
+          return snapshot.docs
+              .map((doc) => ReportItem.fromFirestore(doc))
+              .toList();
+        });
   }
 
   /// Submits a new report with timeout and user name fallback
@@ -31,7 +34,11 @@ class ReportService {
       // 1. Get user name from Firestore profile (fallback to Auth or 'Anonymous')
       String name = 'User';
       try {
-        final userDoc = await _firestore.collection('users').doc(user.uid).get().timeout(const Duration(seconds: 4));
+        final userDoc = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get()
+            .timeout(const Duration(seconds: 4));
         if (userDoc.exists) {
           name = userDoc.data()?['displayName'] ?? 'User';
         } else {
@@ -42,9 +49,15 @@ class ReportService {
       }
 
       // 2. Prepare initials
-      final initials = name.trim().isEmpty 
-          ? '?' 
-          : name.split(' ').where((s) => s.isNotEmpty).map((s) => s[0]).take(2).join().toUpperCase();
+      final initials = name.trim().isEmpty
+          ? '?'
+          : name
+                .split(' ')
+                .where((s) => s.isNotEmpty)
+                .map((s) => s[0])
+                .take(2)
+                .join()
+                .toUpperCase();
 
       final newReport = ReportItem(
         id: '',
@@ -57,16 +70,22 @@ class ReportService {
         confirmedBy: [],
         deniedBy: [],
         status: 'pending',
+        visibility: 'visible',
+        moderationStatus: 'pending',
+        severity: 'medium',
       );
 
       // 3. Add to Firestore with timeout
-      await _reportsCollection.add(newReport.toMap()).timeout(const Duration(seconds: 10));
+      await _reportsCollection
+          .add(newReport.toMap())
+          .timeout(const Duration(seconds: 10));
       debugPrint('Firestore: Report submitted successfully');
-      
     } catch (e) {
       debugPrint('Firestore Error: $e');
       if (e.toString().contains('permission-denied')) {
-        throw Exception('Database permission denied. Check your Firestore rules.');
+        throw Exception(
+          'Database permission denied. Check your Firestore rules.',
+        );
       } else if (e.toString().contains('TimeoutException')) {
         throw Exception('Submission timed out. Please check your internet.');
       }
