@@ -16,4 +16,35 @@ class AirQualityService {
       throw Exception('Failed to fetch air quality from OpenWeather: $e');
     }
   }
+
+  /// Fetches forecast air quality data for the given coordinates using OpenWeather API.
+  Future<List<AirQualityModel>> fetchForecastAirQuality(double lat, double lon) async {
+    try {
+      return await _openWeatherService.fetchAirQualityForecast(
+        latitude: lat,
+        longitude: lon,
+      );
+    } catch (e) {
+      throw Exception('Failed to fetch forecast air quality from OpenWeather: $e');
+    }
+  }
+
+  /// Fetches historical air quality data between [start] and [end] for given coordinates.
+  Future<List<AirQualityModel>> fetchAirQualityHistory(
+    double lat,
+    double lon,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      return await _openWeatherService.fetchAirQualityHistory(
+        latitude: lat,
+        longitude: lon,
+        start: start,
+        end: end,
+      );
+    } catch (e) {
+      throw Exception('Failed to fetch historical air quality from OpenWeather: $e');
+    }
+  }
 }

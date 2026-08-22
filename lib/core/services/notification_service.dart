@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
+import 'package:flutter/material.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -7,8 +8,9 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  
+  Function(String?)? onNotificationTap;
 
-  /// Initialize notifications for Android
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -17,10 +19,16 @@ class NotificationService {
       android: initializationSettingsAndroid,
     );
 
-    await _notificationsPlugin.initialize(initializationSettings);
+    await _notificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (onNotificationTap != null) {
+          onNotificationTap!(response.payload);
+        }
+      },
+    );
   }
 
-  /// Request permission for Android 13+
   Future<void> requestPermissions() async {
     if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
@@ -30,32 +38,68 @@ class NotificationService {
     }
   }
 
-  /// Show a simple alert notification
+  /// Show a detailed AQI alert with health advice (mask instructions, etc.)
   Future<void> showAqiAlert({
     required int aqi,
-    required int threshold,
+    required String category,
+    required String advice,
     String? location,
   }) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final String locationText = location != null ? ' in $location' : '';
+    final String fullBody = '$advice (AQI Index: $aqi)';
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'aqi_alerts_channel',
       'Air Quality Alerts',
       channelDescription: 'Notifications for high AQI levels',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
-      ticker: 'ticker',
+      // Use BigTextStyle to ensure instructions aren't cut off
+      styleInformation: BigTextStyleInformation(
+        fullBody,
+        contentTitle: 'AQI Alert: $category$locationText',
+        summaryText: 'Health Advisory',
+      ),
     );
 
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
-    final String locationText = location != null ? ' in $location' : '';
+    await _notificationsPlugin.show(
+      DateTime.now().millisecond, // Unique ID to prevent overwriting
+      'AQI Alert: $category$locationText',
+      fullBody,
+      platformChannelSpecifics,
+      payload: 'aqi_dashboard',
+    );
+  }
+
+  /// Used for foreground FCM messages
+  Future<void> showRawNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'fcm_alerts_channel',
+      'General Alerts',
+      channelDescription: 'Air quality monitoring alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      styleInformation: BigTextStyleInformation(body),
+    );
+
+    final NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
 
     await _notificationsPlugin.show(
-      0,
-      'High Air Pollution Warning!',
-      'Current AQI is $aqi$locationText, exceeding your limit of $threshold.',
+      DateTime.now().millisecond + 100,
+      title,
+      body,
       platformChannelSpecifics,
+      payload: payload,
     );
   }
 }

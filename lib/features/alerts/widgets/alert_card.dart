@@ -47,7 +47,7 @@ class AlertCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9).withValues(alpha: 0.5),
+          color: const Color(0xFFF1F5F9).withOpacity(0.5),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -108,9 +108,9 @@ class AlertCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
-              color: Colors.grey.shade400,
+              color: Colors.grey,
             ),
           ],
         ),
@@ -120,8 +120,8 @@ class AlertCard extends StatelessWidget {
 
   String _getTimeAgo(DateTime dateTime) {
     final diff = DateTime.now().difference(dateTime);
-    if (diff.inMinutes < 60) return '${diff.inMinutes} minutes ago';
-    if (diff.inHours < 24) return '${diff.inHours} hours ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
     return DateFormat('MMM d').format(dateTime);
   }
 }

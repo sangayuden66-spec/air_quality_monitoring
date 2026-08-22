@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import '../core/theme/app_theme.dart';
 
 class MapScreen extends StatefulWidget {
   final Function(LatLng)? onLocationConfirmed;
@@ -16,11 +18,18 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _selectedLocation;
   bool _isLoading = true;
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _determinePosition();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _determinePosition() async {
@@ -57,6 +66,33 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _searchLocation() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        _updateLocation(LatLng(loc.latitude, loc.longitude));
+        // Clear focus
+        FocusScope.of(context).unfocus();
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Location not found')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error searching location: $e')));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   void _updateLocation(LatLng location) {
     setState(() {
       _selectedLocation = location;
@@ -70,8 +106,8 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Location'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: AppThemeColors.surface,
+        foregroundColor: AppThemeColors.textPrimary,
         elevation: 0,
       ),
       body: Stack(
@@ -93,7 +129,49 @@ class _MapScreenState extends State<MapScreen> {
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
+              padding: const EdgeInsets.only(top: 80), // Padding for search bar
             ),
+
+          // Search Bar
+          Positioned(
+            top: 10,
+            left: 15,
+            right: 15,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0x1A111827),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search for a location...',
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppThemeColors.primary,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => _searchController.clear(),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
+                ),
+                onSubmitted: (_) => _searchLocation(),
+              ),
+            ),
+          ),
+
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
           else if (_errorMessage != null)
@@ -113,6 +191,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
+
           if (!_isLoading && _selectedLocation != null)
             Positioned(
               bottom: 20,
@@ -138,8 +217,8 @@ class _MapScreenState extends State<MapScreen> {
                           icon: const Icon(Icons.my_location),
                           label: const Text('Current'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.teal,
+                            backgroundColor: AppThemeColors.surface,
+                            foregroundColor: AppThemeColors.primary,
                           ),
                         ),
                       ),
@@ -154,7 +233,7 @@ class _MapScreenState extends State<MapScreen> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
+                            backgroundColor: AppThemeColors.primary,
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('Use this location'),
