@@ -117,29 +117,37 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             ),
                           ),
                         ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () {},
+                          icon: const Icon(Icons.notifications_none_rounded),
+                          color: AppThemeColors.textPrimary,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'Admin Dashboard',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Overview of users and report moderation',
-                      style: TextStyle(color: AppThemeColors.textSecondary),
-                    ),
-                    const SizedBox(height: 16),
                     TextField(
                       controller: _searchController,
                       onChanged: (value) =>
                           setState(() => _query = value.trim()),
                       decoration: InputDecoration(
-                        hintText: 'Search users, reports and locations',
+                        hintText: 'Search users, reports, locations...',
                         prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: const Color(0xFFF4F5F7),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                         suffixIcon: _query.isEmpty
                             ? null
                             : IconButton(
@@ -159,22 +167,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             title: 'Total Users',
                             value: users.length.toString(),
                             icon: Icons.people_alt_outlined,
+                            trend: '+12.5%',
+                            trendColor: Colors.black,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: _StatCard(
-                            title: 'Visible Reports',
+                            title: 'Active Reports',
                             value: visibleReports.length.toString(),
-                            icon: Icons.visibility_outlined,
+                            icon: Icons.chat_bubble_outline,
+                            trend: '+8.2%',
+                            trendColor: Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
                         Expanded(
                           child: _StatCard(
                             title: 'Pending Reviews',
                             value: pendingReports.length.toString(),
-                            icon: Icons.pending_actions_outlined,
+                            icon: Icons.warning_amber_rounded,
+                            trend: '-5.1%',
+                            trendColor: Colors.black,
                           ),
                         ),
                       ],
@@ -182,12 +200,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     const SizedBox(height: 18),
                     _SectionCard(
                       title: 'Pending Reports',
-                      subtitle: 'Preview of reports requiring moderation',
+                      viewAll: true,
                       child: filteredPending.isEmpty
                           ? const Text('No pending reports found.')
                           : Column(
                               children: filteredPending
-                                  .take(4)
+                                  .take(3)
                                   .map(
                                     (report) => _PendingReportTile(
                                       report: report,
@@ -201,18 +219,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             ),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: 'Recent Users',
-                      subtitle: 'Latest registered users',
-                      child: filteredRecentUsers.isEmpty
-                          ? const Text('No users match your search.')
-                          : Column(
-                              children: filteredRecentUsers
-                                  .take(4)
-                                  .map((user) => _RecentUserTile(user: user))
-                                  .toList(growable: false),
-                            ),
-                    ),
+                    _RecentUsersCard(users: filteredRecentUsers.take(4).toList()),
                   ],
                 ),
               );
@@ -284,32 +291,64 @@ class _StatCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.icon,
+    required this.trend,
+    required this.trendColor,
   });
 
   final String title;
   final String value;
   final IconData icon;
+  final String trend;
+  final Color trendColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: AppThemeStyles.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppThemeColors.primary, size: 20),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE7EAF6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppThemeColors.textPrimary, size: 20),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111827),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  trend,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 10),
           Text(
             title,
             style: const TextStyle(
               fontSize: 12,
               color: AppThemeColors.textSecondary,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -320,33 +359,42 @@ class _StatCard extends StatelessWidget {
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
-    required this.subtitle,
     required this.child,
+    this.viewAll = false,
   });
 
   final String title;
-  final String subtitle;
   final Widget child;
+  final bool viewAll;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: AppThemeStyles.cardDecoration(),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: AppThemeColors.textSecondary,
-              fontSize: 12,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (viewAll)
+                const Text(
+                  'View All',
+                  style: TextStyle(
+                    color: AppThemeColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 10),
           child,
@@ -364,9 +412,9 @@ class _PendingReportTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timestamp = DateFormat(
-      'MMM d, h:mm a',
-    ).format(report.createdAt.toLocal());
+    final timestamp = DateFormat('MMM d, h:mm a').format(report.createdAt.toLocal());
+    final isPending = report.moderationStatus == 'pending';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
@@ -374,7 +422,7 @@ class _PendingReportTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppThemeColors.surface,
           border: Border.all(color: AppThemeColors.border),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,27 +435,60 @@ class _PendingReportTile extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                _pill(report.severity.toUpperCase()),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPending
+                        ? const Color(0xFFF3F4F6)
+                        : const Color(0xFFE6F9EE),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    isPending ? 'pending' : 'approved',
+                    style: TextStyle(
+                      color: isPending
+                          ? const Color(0xFF6B7280)
+                          : const Color(0xFF16A34A),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              report.location,
-              style: const TextStyle(
-                color: AppThemeColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              report.text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppThemeColors.textSecondary),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 12,
+                  color: AppThemeColors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    report.location,
+                    style: const TextStyle(
+                      color: AppThemeColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             Text(
-              'Status: ${report.status} • $timestamp',
+              report.text,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppThemeColors.textPrimary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              timestamp,
               style: const TextStyle(
                 color: AppThemeColors.textSecondary,
                 fontSize: 12,
@@ -418,76 +499,127 @@ class _PendingReportTile extends StatelessWidget {
       ),
     );
   }
-
-  Widget _pill(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Color(0xFF1D4ED8),
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
 }
 
-class _RecentUserTile extends StatelessWidget {
-  const _RecentUserTile({required this.user});
+class _RecentUsersCard extends StatelessWidget {
+  const _RecentUsersCard({required this.users});
 
-  final UserModel user;
+  final List<UserModel> users;
 
   @override
   Widget build(BuildContext context) {
-    final name = (user.displayName?.trim().isNotEmpty ?? false)
-        ? user.displayName!.trim()
-        : user.email;
-    final joined = user.createdAt != null
-        ? DateFormat('MMM d, yyyy').format(user.createdAt!.toLocal())
-        : 'Unknown join date';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: AppThemeStyles.cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: const Color(0xFFEFF6FF),
-            child: Text(
-              name.substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                color: AppThemeColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(
-                  user.email,
-                  style: const TextStyle(color: AppThemeColors.textSecondary),
+          Row(
+            children: [
+              const Icon(Icons.people_alt_outlined, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Recent Users',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
-                Text(
-                  'Joined: $joined',
-                  style: const TextStyle(
-                    color: AppThemeColors.textSecondary,
-                    fontSize: 12,
+              ),
+              const Text(
+                'View All',
+                style: TextStyle(
+                  color: AppThemeColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (users.isEmpty)
+            const Text('No users found.')
+          else ...[
+            const Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Name',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Email',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    'Join',
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 10),
+            ...users.map((user) {
+              final displayName = user.displayName?.trim().isNotEmpty == true
+                  ? user.displayName!.trim()
+                  : user.email.split('@').first;
+              final joinedText = user.createdAt != null
+                  ? '${DateTime.now().difference(user.createdAt!).inHours}h ago'
+                  : '—';
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: const Color(0xFFDBEAFE),
+                      child: Text(
+                        (displayName.isEmpty ? user.email : displayName)
+                            .substring(0, 1)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFF1F3C88),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        displayName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        user.email,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: AppThemeColors.textSecondary),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 60,
+                      child: Text(
+                        joinedText,
+                        style: const TextStyle(
+                          color: AppThemeColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
   }
 }
+

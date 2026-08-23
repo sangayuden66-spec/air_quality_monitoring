@@ -1,775 +1,180 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/services/user_service.dart';
-import '../services/alert_preference_service.dart';
-import '../../../screens/map_screen.dart';
-import '../../auth/services/auth_service.dart';
-import '../../../core/services/fcm_service.dart';
 
-class AlertSettingsScreen extends StatefulWidget {
+class AlertSettingsScreen extends StatelessWidget {
   const AlertSettingsScreen({super.key});
 
   @override
-  State<AlertSettingsScreen> createState() => _AlertSettingsScreenState();
-}
-
-class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
-  final AlertPreferenceService _prefService = AlertPreferenceService();
-  final AuthService _authService = AuthService();
-  final FcmService _fcmService = FcmService();
-  final UserService _userService = UserService();
-  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-
-  bool _isLoading = true;
-  bool _enabled = true;
-  double _threshold = 3;
-  LatLng? _alertLocation;
-  String _locationName = 'My Alert Location';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPreferences();
-  }
-
-  Future<void> _loadPreferences() async {
-    try {
-      final pref = await _prefService.getAlertPreference().first;
-      if (pref != null) {
-        setState(() {
-          _enabled = pref.enabled;
-          _threshold = pref.threshold.toDouble();
-          _alertLocation = LatLng(pref.latitude, pref.longitude);
-          _locationName = pref.locationName;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading preferences: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _save() async {
-    if (_alertLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a location on the map first.'),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await _prefService.saveAlertPreference(
-        AlertPreference(
-          id: 'default_alert',
-          threshold: _threshold.toInt(),
-          enabled: _enabled,
-          locationName: _locationName,
-          latitude: _alertLocation!.latitude,
-          longitude: _alertLocation!.longitude,
-        ),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Settings saved! Monitoring active.'),
-            backgroundColor: Color(0xFF2D7EF7),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error saving: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _pickLocation() async {
-    final LatLng? result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MapScreen()),
-    );
-    if (result != null) {
-      setState(() => _alertLocation = result);
-    }
-  }
-
-  Future<void> _openAlertPreferencesSheet() async {
-    bool localEnabled = _enabled;
-    double localThreshold = _threshold;
-    LatLng? localLocation = _alertLocation;
-    String localName = _locationName;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppThemeColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                16,
-                16,
-                MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Alert Preferences',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Enable AQI Alerts'),
-                    subtitle: const Text(
-                      'Receive notification alerts in this app',
-                    ),
-                    value: localEnabled,
-                    activeThumbColor: AppThemeColors.primary,
-                    onChanged: (val) => setSheetState(() => localEnabled = val),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Alert Threshold: ${_getAqiLabel(localThreshold.toInt())}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  Slider(
-                    value: localThreshold,
-                    min: 1,
-                    max: 5,
-                    divisions: 4,
-                    label: _getAqiLabel(localThreshold.toInt()),
-                    onChanged: localEnabled
-                        ? (val) => setSheetState(() => localThreshold = val)
-                        : null,
-                  ),
-                  const SizedBox(height: 4),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.location_on_outlined,
-                      color: Color(0xFF2563EB),
-                    ),
-                    title: const Text('Monitoring Location'),
-                    subtitle: Text(
-                      localLocation == null
-                          ? 'Select location on map'
-                          : '${localLocation!.latitude.toStringAsFixed(3)}, ${localLocation!.longitude.toStringAsFixed(3)}',
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () async {
-                      final LatLng? result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MapScreen(),
-                        ),
-                      );
-                      if (result != null) {
-                        setSheetState(() {
-                          localLocation = result;
-                        });
-                      }
-                    },
-                  ),
-                  TextField(
-                    controller: TextEditingController(text: localName),
-                    decoration: const InputDecoration(
-                      labelText: 'Location name',
-                      hintText: 'e.g. Home',
-                    ),
-                    onChanged: (val) => localName = val.trim().isEmpty
-                        ? 'My Alert Location'
-                        : val.trim(),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading
-                          ? null
-                          : () async {
-                              setState(() {
-                                _enabled = localEnabled;
-                                _threshold = localThreshold;
-                                _alertLocation = localLocation;
-                                _locationName = localName;
-                              });
-                              await _save();
-                              if (sheetContext.mounted) {
-                                Navigator.of(sheetContext).pop();
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppThemeColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Save Preferences'),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  String _getAqiLabel(int val) {
-    switch (val) {
-      case 1:
-        return '1 - Good';
-      case 2:
-        return '2 - Fair';
-      case 3:
-        return '3 - Moderate';
-      case 4:
-        return '4 - Poor';
-      case 5:
-        return '5 - Very Poor';
-      default:
-        return 'Select Index';
-    }
-  }
-
-  Future<void> _openEditProfileDialog() async {
-    final currentUser = _firebaseAuth.currentUser;
-    final initialName = currentUser?.displayName?.trim() ?? '';
-    final controller = TextEditingController(text: initialName);
-
-    final submittedName = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Edit Profile Name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Display Name',
-            hintText: 'Enter your name',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted || submittedName == null) return;
-    if (submittedName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Display name cannot be empty.')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await _userService.updateDisplayName(submittedName);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully.')),
-      );
-      setState(() {});
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _handleLogout() async {
-    final bool confirm =
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Sign Out'),
-            content: const Text('Are you sure you want to log out?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Sign Out',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-
-    if (confirm) {
-      // 1. Clean up FCM token before signing out
-      await _fcmService.deleteToken();
-      // 2. Sign out
-      await _authService.signOut();
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final user = _firebaseAuth.currentUser;
-    final displayName = (user?.displayName?.trim().isNotEmpty ?? false)
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName?.trim().isNotEmpty == true
         ? user!.displayName!.trim()
-        : 'User';
-    final email = user?.email ?? 'No email';
+        : 'John Doe';
+    final email = user?.email ?? 'john.doe@example.com';
     final initials = displayName
-        .split(' ')
+        .split(RegExp(r'\s+'))
         .where((p) => p.isNotEmpty)
         .take(2)
         .map((p) => p[0].toUpperCase())
         .join();
 
+    final sections = [
+      _SectionHeader('Profile'),
+      _SettingsCard(children: [
+        _SettingsTile(icon: Icons.person_outline_rounded, iconColor: const Color(0xFF1D9BF0), iconBg: const Color(0xFFEAF3FF), title: 'Edit Profile', subtitle: 'Update your personal information', onTap: () {}),
+        _SettingsTile(icon: Icons.location_on_outlined, iconColor: const Color(0xFF1D9BF0), iconBg: const Color(0xFFEAF3FF), title: 'Location', subtitle: 'Home', onTap: () {}),
+        _SettingsTile(icon: Icons.notifications_none_rounded, iconColor: const Color(0xFF1D9BF0), iconBg: const Color(0xFFEAF3FF), title: 'Notifications', subtitle: 'Manage alert preferences', trailingBadge: '3 new', onTap: () {}),
+      ]),
+      const SizedBox(height: 20),
+      _SectionHeader('Security'),
+      _SettingsCard(children: [
+        _SettingsTile(icon: Icons.lock_outline, iconColor: const Color(0xFF18A957), iconBg: const Color(0xFFE8F7EE), title: 'Change Password', subtitle: 'Update your password', onTap: () {}),
+        _SettingsTile(icon: Icons.privacy_tip_outlined, iconColor: const Color(0xFF18A957), iconBg: const Color(0xFFE8F7EE), title: 'Privacy Settings', subtitle: 'Control your data sharing', onTap: () {}),
+        _SettingsTile(icon: Icons.email_outlined, iconColor: const Color(0xFF18A957), iconBg: const Color(0xFFE8F7EE), title: 'Email Preferences', subtitle: 'Manage email notifications', onTap: () {}),
+      ]),
+      const SizedBox(height: 20),
+      _SectionHeader('General'),
+      _SettingsCard(children: [
+        _SettingsTile(icon: Icons.dark_mode_outlined, iconColor: const Color(0xFFAD63D6), iconBg: const Color(0xFFF6ECFF), title: 'Dark Mode', subtitle: 'Coming soon', onTap: () {}),
+        _SettingsTile(icon: Icons.language_outlined, iconColor: const Color(0xFF5A6BFF), iconBg: const Color(0xFFEAF1FF), title: 'Language', subtitle: 'English (US)', onTap: () {}),
+      ]),
+      const SizedBox(height: 20),
+      _SectionHeader('Support'),
+      _SettingsCard(children: [
+        _SettingsTile(icon: Icons.help_center_outlined, iconColor: const Color(0xFFE67E22), iconBg: const Color(0xFFFFF1E8), title: 'Help Center', subtitle: 'Browse FAQs and guides', onTap: () {}),
+        _SettingsTile(icon: Icons.support_agent_outlined, iconColor: const Color(0xFFE67E22), iconBg: const Color(0xFFFFF1E8), title: 'Contact Support', subtitle: 'Get help from our team', onTap: () {}),
+        _SettingsTile(icon: Icons.description_outlined, iconColor: const Color(0xFFE67E22), iconBg: const Color(0xFFFFF1E8), title: 'Terms & Privacy', subtitle: 'Read our policies', onTap: () {}),
+      ]),
+      const SizedBox(height: 22),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () {},
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFDC2626),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          icon: const Icon(Icons.logout_rounded, size: 18),
+          label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.w700)),
+        ),
+      ),
+      const SizedBox(height: 18),
+      const _AlertThresholdCard(),
+      const SizedBox(height: 16),
+      const Center(
+        child: Text(
+          'Air Quality Monitor v1.0.0\n© 2026 All rights reserved',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: AppThemeColors.textSecondary, height: 1.5),
+        ),
+      ),
+    ];
+
     return Scaffold(
       backgroundColor: AppThemeColors.background,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              bottom: false,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 14),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.maybePop(context),
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                        const Expanded(
-                          child: Column(
-                            children: [
-                              Text(
-                                'Settings',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                              Text(
-                                'Manage your account',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 48),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2D7EF7), Color(0xFF8A2BE2)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x26000000),
-                          blurRadius: 14,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          child: Text(
-                            initials.isEmpty ? 'U' : initials,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                displayName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                email,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 19,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.24),
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: const Text(
-                                  'Member',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'PROFILE',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SettingsTile(
-                        icon: Icons.person_outline_rounded,
-                        iconColor: const Color(0xFF2563EB),
-                        iconBg: const Color(0xFFEFF6FF),
-                        title: 'Edit Profile',
-                        subtitle: 'Update your personal information',
-                        onTap: _openEditProfileDialog,
-                      ),
-                      _SettingsTile(
-                        icon: Icons.location_on_outlined,
-                        iconColor: const Color(0xFF2563EB),
-                        iconBg: const Color(0xFFEFF6FF),
-                        title: 'Location',
-                        subtitle: _locationName,
-                        onTap: () async {
-                          await _pickLocation();
-                          if (mounted && _alertLocation != null) {
-                            await _save();
-                          }
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.notifications_none_rounded,
-                        iconColor: const Color(0xFF2563EB),
-                        iconBg: const Color(0xFFEFF6FF),
-                        title: 'Notifications',
-                        subtitle:
-                            'Threshold ${_getAqiLabel(_threshold.toInt())}',
-                        trailingBadge: !_enabled ? 'Off' : null,
-                        onTap: _openAlertPreferencesSheet,
-                      ),
+                      Text('Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                      Text('Manage your account', style: TextStyle(fontSize: 13, color: AppThemeColors.textSecondary)),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'ALERTS',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B7280),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF4C60F5), Color(0xFF8F46FF)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.all(Radius.circular(18)),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.white.withValues(alpha: 0.22),
+                    child: Text(
+                      initials.isEmpty ? 'JD' : initials,
+                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE5EAF3)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0F111827),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(width: 14),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Alert Threshold',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF111827),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(100),
-                              ),
-                              child: Text(
-                                _getAqiLabel(_threshold.toInt()),
-                                style: const TextStyle(
-                                  color: Color(0xFF1D4ED8),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        Text(displayName, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700)),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Control when AQI alerts are triggered',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
+                        Text(email, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ),
-                        Slider(
-                          value: _threshold,
-                          min: 1,
-                          max: 5,
-                          divisions: 4,
-                          label: _getAqiLabel(_threshold.toInt()),
-                          onChanged: _enabled
-                              ? (val) => setState(() => _threshold = val)
-                              : null,
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _openAlertPreferencesSheet,
-                                child: const Text('More Alert Options'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _save,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppThemeColors.primary,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text('Save Threshold'),
-                              ),
-                            ),
-                          ],
+                          child: const Text('Premium Member', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'SECURITY',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.lock_outline_rounded,
-                        iconColor: const Color(0xFF10B981),
-                        iconBg: const Color(0xFFE8FBF3),
-                        title: 'Change Password',
-                        subtitle: 'Update your password',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Change password coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.privacy_tip_outlined,
-                        iconColor: const Color(0xFF10B981),
-                        iconBg: const Color(0xFFE8FBF3),
-                        title: 'Privacy Settings',
-                        subtitle: 'Control your data sharing',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Privacy settings coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.email_outlined,
-                        iconColor: const Color(0xFF10B981),
-                        iconBg: const Color(0xFFE8FBF3),
-                        title: 'Email Preferences',
-                        subtitle: 'Manage email notifications',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Email preferences coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.logout_rounded,
-                        iconColor: const Color(0xFFDC2626),
-                        iconBg: const Color(0xFFFEECEC),
-                        title: 'Sign Out',
-                        subtitle: 'Log out of your account',
-                        onTap: _handleLogout,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'GENERAL',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _SettingsGroup(
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.dark_mode_outlined,
-                        iconColor: const Color(0xFFA855F7),
-                        iconBg: const Color(0xFFF5EDFF),
-                        title: 'Dark Mode',
-                        subtitle: 'Coming soon',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Dark mode coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.language_outlined,
-                        iconColor: const Color(0xFFA855F7),
-                        iconBg: const Color(0xFFF5EDFF),
-                        title: 'Language',
-                        subtitle: 'English (US)',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Language options coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Alert threshold and monitoring location are kept from your previous settings.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            ...sections,
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _SettingsGroup extends StatelessWidget {
-  final List<Widget> children;
+class _SectionHeader extends StatelessWidget {
+  final String text;
+  const _SectionHeader(this.text);
 
-  const _SettingsGroup({required this.children});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: AppThemeColors.textSecondary),
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  final List<Widget> children;
+  const _SettingsCard({required this.children});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5EAF3)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F111827),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: List.generate(children.length * 2 - 1, (index) {
-          if (index.isEven) return children[index ~/ 2];
-          return const Divider(height: 1, color: Color(0xFFEDEFF4));
-        }),
-      ),
+      decoration: AppThemeStyles.cardDecoration(),
+      child: Column(children: children),
     );
   }
 }
@@ -780,8 +185,8 @@ class _SettingsTile extends StatelessWidget {
   final Color iconBg;
   final String title;
   final String subtitle;
-  final String? trailingBadge;
   final VoidCallback onTap;
+  final String? trailingBadge;
 
   const _SettingsTile({
     required this.icon,
@@ -795,50 +200,125 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
+    return InkWell(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: iconBg,
-          borderRadius: BorderRadius.circular(19),
-        ),
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF111827),
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(color: Color(0xFF6B7280)),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (trailingBadge != null)
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
             Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE11D48),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                trailingBadge!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: AppThemeColors.textSecondary)),
+                ],
               ),
             ),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF9CA3AF)),
+            if (trailingBadge != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(18)),
+                child: Text(trailingBadge!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppThemeColors.primary)),
+              ),
+              const SizedBox(width: 8),
+            ],
+            const Icon(Icons.chevron_right_rounded, color: AppThemeColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlertThresholdCard extends StatefulWidget {
+  const _AlertThresholdCard();
+
+  @override
+  State<_AlertThresholdCard> createState() => _AlertThresholdCardState();
+}
+
+class _AlertThresholdCardState extends State<_AlertThresholdCard> {
+  double _threshold = 2;
+
+  String get _label {
+    if (_threshold <= 1) return 'Good';
+    if (_threshold <= 2) return 'Fair';
+    if (_threshold <= 3) return 'Moderate';
+    if (_threshold <= 4) return 'Poor';
+    return 'Very Poor';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: AppThemeStyles.cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'ALERTS',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: AppThemeColors.textSecondary),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Alert Threshold',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              Text(
+                '$_threshold - $_label',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppThemeColors.primary),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Control when AQI alerts are triggered',
+            style: TextStyle(fontSize: 12, color: AppThemeColors.textSecondary),
+          ),
+          const SizedBox(height: 10),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFF3B82F6),
+              inactiveTrackColor: const Color(0xFFD6E4FF),
+              thumbColor: const Color(0xFF3B82F6),
+              overlayColor: const Color(0xFF3B82F6).withValues(alpha: 0.18),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: _threshold,
+              min: 1,
+              max: 5,
+              divisions: 4,
+              label: _threshold.round().toString(),
+              onChanged: (value) => setState(() => _threshold = value),
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1D4ED8),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Save Threshold', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
         ],
       ),
     );
