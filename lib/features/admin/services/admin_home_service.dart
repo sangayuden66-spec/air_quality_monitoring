@@ -37,4 +37,30 @@ class AdminHomeService {
               .toList(growable: false);
         });
   }
+
+  Future<void> setReportVisibility({
+    required String reportId,
+    required bool visible,
+  }) async {
+    final status = visible ? 'verified' : 'hidden';
+    final moderationStatus = visible ? 'approved' : 'rejected';
+    await _firestore.collection('reports').doc(reportId).set({
+      'visibility': visible ? 'visible' : 'hidden',
+      'status': status,
+      'moderationStatus': moderationStatus,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setReportModeration({
+    required String reportId,
+    required bool approved,
+  }) async {
+    await _firestore.collection('reports').doc(reportId).set({
+      'moderationStatus': approved ? 'approved' : 'rejected',
+      'status': approved ? 'verified' : 'hidden',
+      'visibility': approved ? 'visible' : 'hidden',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

@@ -73,6 +73,64 @@ class AdminReportsScreen extends StatefulWidget {
 class _AdminReportsScreenState extends State<AdminReportsScreen> {
   final AdminHomeService _service = AdminHomeService();
   String _filter = 'all';
+  bool _isUpdating = false;
+
+  Future<void> _toggleVisibility(ReportItem report) async {
+    if (_isUpdating) return;
+    setState(() => _isUpdating = true);
+    final shouldBeVisible = report.visibility == 'hidden';
+    try {
+      await _service.setReportVisibility(
+        reportId: report.id,
+        visible: shouldBeVisible,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            shouldBeVisible
+                ? 'Report is now visible to users.'
+                : 'Report has been hidden.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update report: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
+  }
+
+  Future<void> _reviewReport(ReportItem report, bool approved) async {
+    if (_isUpdating) return;
+    setState(() => _isUpdating = true);
+    try {
+      await _service.setReportModeration(
+        reportId: report.id,
+        approved: approved,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            approved
+                ? 'Report approved and visible.'
+                : 'Report rejected and hidden.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to review report: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +224,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 Expanded(
                   child: ListView(
                     children: filteredReports
-                        .map((report) => _ReportCard(report: report))
+                        .map(
+                          (report) => _ReportCard(
+                            report: report,
+                            onReview: (approved) =>
+                                _reviewReport(report, approved),
+                            onToggleVisibility: () => _toggleVisibility(report),
+                            disabled: _isUpdating,
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
@@ -217,8 +283,16 @@ class _ReportFilterChip extends StatelessWidget {
 
 class _ReportCard extends StatelessWidget {
   final ReportItem report;
+  final Future<void> Function(bool approved) onReview;
+  final Future<void> Function() onToggleVisibility;
+  final bool disabled;
 
-  const _ReportCard({required this.report});
+  const _ReportCard({
+    required this.report,
+    required this.onReview,
+    required this.onToggleVisibility,
+    this.disabled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -329,9 +403,9 @@ class _ReportCard extends StatelessWidget {
                   color: const Color(0xFFEAF1FF),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Text(
-                  'Smoke',
-                  style: TextStyle(
+                child: Text(
+                  report.severity.toUpperCase(),
+                  style: const TextStyle(
                     color: Color(0xFF3563E9),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -358,10 +432,19 @@ class _ReportCard extends StatelessWidget {
                 color: Color(0xFF16A34A),
               ),
               const SizedBox(width: 6),
-              const Text(
-                '12 confirm',
-                style: TextStyle(
+              Text(
+                '${report.confirm} confirmations',
+                style: const TextStyle(
                   color: Colors.green,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${report.deny} denials',
+                style: const TextStyle(
+                  color: Color(0xFFB45309),
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
                 ),
@@ -374,7 +457,7 @@ class _ReportCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  '${report.confirm} ${report.confirm == 1 ? 'yes' : 'yes'}',
+                  report.moderationStatus,
                   style: const TextStyle(
                     color: Color(0xFF16A34A),
                     fontSize: 11,
@@ -389,9 +472,20 @@ class _ReportCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('Edit'),
+                  onPressed: disabled
+                      ? null
+                      : () => onReview(report.moderationStatus != 'approved'),
+                  icon: Icon(
+                    report.moderationStatus == 'approved'
+                        ? Icons.cancel_outlined
+                        : Icons.verified_outlined,
+                    size: 16,
+                  ),
+                  label: Text(
+                    report.moderationStatus == 'approved'
+                        ? 'Reject'
+                        : 'Approve',
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppThemeColors.primary,
                     side: const BorderSide(color: AppThemeColors.primary),
@@ -405,7 +499,7 @@ class _ReportCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: disabled ? null : onToggleVisibility,
                   icon: const Icon(Icons.hide_source_outlined, size: 16),
                   label: Text(isVisible ? 'Hide' : 'Show'),
                   style: OutlinedButton.styleFrom(
