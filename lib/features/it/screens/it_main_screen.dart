@@ -21,7 +21,10 @@ class _ItMainScreenState extends State<ItMainScreen> {
   Widget build(BuildContext context) {
     final screens = [
       ItHomeScreen(onViewAllTickets: () => _onItemTapped(1)),
-      ItSupportScreen(onBack: () => _onItemTapped(0)),
+      ItSupportScreen(
+        onBack: () => _onItemTapped(0),
+        isActive: _selectedIndex == 1,
+      ),
       ItSystemScreen(onBack: () => _onItemTapped(0)),
       ItSettingsScreen(onBack: () => _onItemTapped(0)),
     ];
@@ -36,12 +39,22 @@ class _ItMainScreenState extends State<ItMainScreen> {
         selectedItemColor: AppThemeColors.primary,
         unselectedItemColor: AppThemeColors.textSecondary,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.help_outline_rounded), label: 'Support'),
-          BottomNavigationBarItem(icon: Icon(Icons.dns_outlined), label: 'System'),
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined), label: 'Settings'),
+            icon: Icon(Icons.help_outline_rounded),
+            label: 'Support',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dns_outlined),
+            label: 'System',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            label: 'Settings',
+          ),
         ],
       ),
     );

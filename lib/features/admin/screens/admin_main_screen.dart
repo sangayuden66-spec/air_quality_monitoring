@@ -80,8 +80,12 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       stream: _service.watchReports(),
       builder: (context, snapshot) {
         final reports = snapshot.data ?? const <ReportItem>[];
-        final visibleReports = reports.where((r) => r.visibility != 'hidden').toList();
-        final hiddenReports = reports.where((r) => r.visibility == 'hidden').toList();
+        final visibleReports = reports
+            .where((r) => r.visibility != 'hidden')
+            .toList();
+        final hiddenReports = reports
+            .where((r) => r.visibility == 'hidden')
+            .toList();
         final filteredReports = switch (_filter) {
           'visible' => visibleReports,
           'hidden' => hiddenReports,
@@ -97,17 +101,26 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.maybePop(context),
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
                         'Manage Reports',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEAF1FF),
                         borderRadius: BorderRadius.circular(999),
@@ -210,7 +223,9 @@ class _ReportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isVisible = report.visibility != 'hidden';
-    final statusColor = isVisible ? const Color(0xFF16A34A) : const Color(0xFFCA8A04);
+    final statusColor = isVisible
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFCA8A04);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -248,7 +263,10 @@ class _ReportCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE6F8EE),
                             borderRadius: BorderRadius.circular(999),
@@ -267,7 +285,11 @@ class _ReportCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(Icons.access_time_rounded, size: 13, color: AppThemeColors.textSecondary),
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 13,
+                          color: AppThemeColors.textSecondary,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           report.timeAgo,
@@ -286,7 +308,11 @@ class _ReportCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: AppThemeColors.textSecondary),
+              const Icon(
+                Icons.location_on_outlined,
+                size: 14,
+                color: AppThemeColors.textSecondary,
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -326,7 +352,11 @@ class _ReportCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.check_circle, size: 14, color: Color(0xFF16A34A)),
+              const Icon(
+                Icons.check_circle,
+                size: 14,
+                color: Color(0xFF16A34A),
+              ),
               const SizedBox(width: 6),
               const Text(
                 '12 confirm',
@@ -458,7 +488,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.maybePop(context),
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
@@ -511,13 +544,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             Expanded(
                               child: TextField(
                                 controller: _searchController,
-                                onChanged: (value) => setState(() => _query = value.trim()),
+                                onChanged: (value) =>
+                                    setState(() => _query = value.trim()),
                                 decoration: const InputDecoration(
-                                  hintText: 'Search users by name, email, or role...',
+                                  hintText:
+                                      'Search users by name, email, or role...',
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
                                   focusedBorder: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 16),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
                                 ),
                               ),
                             ),
@@ -543,15 +580,24 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _UsersStatTile(label: 'Total Users', value: totalUsers.toString()),
+                      child: _UsersStatTile(
+                        label: 'Total Users',
+                        value: totalUsers.toString(),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _UsersStatTile(label: 'Active', value: activeUsers.toString()),
+                      child: _UsersStatTile(
+                        label: 'Active',
+                        value: activeUsers.toString(),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _UsersStatTile(label: 'Disabled', value: disabledUsers.toString()),
+                      child: _UsersStatTile(
+                        label: 'Disabled',
+                        value: disabledUsers.toString(),
+                      ),
                     ),
                   ],
                 ),
@@ -563,7 +609,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       if (!isWide) {
                         return ListView(
                           children: filteredUsers
-                              .map((user) => _UserCard(user: user, isSelected: _selectedUser == user, onTap: () => setState(() => _selectedUser = user)))
+                              .map(
+                                (user) => _UserCard(
+                                  user: user,
+                                  isSelected: _selectedUser == user,
+                                  onTap: () =>
+                                      setState(() => _selectedUser = user),
+                                ),
+                              )
                               .toList(),
                         );
                       }
@@ -575,7 +628,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             flex: 5,
                             child: ListView(
                               children: filteredUsers
-                                  .map((user) => _UserCard(user: user, isSelected: _selectedUser == user, onTap: () => setState(() => _selectedUser = user)))
+                                  .map(
+                                    (user) => _UserCard(
+                                      user: user,
+                                      isSelected: _selectedUser == user,
+                                      onTap: () =>
+                                          setState(() => _selectedUser = user),
+                                    ),
+                                  )
                                   .toList(),
                             ),
                           ),
@@ -624,10 +684,7 @@ class _UsersStatTile extends StatelessWidget {
         children: [
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
@@ -659,7 +716,14 @@ class _UserCard extends StatelessWidget {
     final name = user.displayName?.trim().isNotEmpty == true
         ? user.displayName!.trim()
         : user.email.split('@').first;
-    final initials = name.isEmpty ? '?' : name.split(RegExp(r'\s+')).take(2).map((v) => v[0]).join().toUpperCase();
+    final initials = name.isEmpty
+        ? '?'
+        : name
+              .split(RegExp(r'\s+'))
+              .take(2)
+              .map((v) => v[0])
+              .join()
+              .toUpperCase();
     final statusLabel = user.status == 'disabled' ? 'disabled' : 'active';
     final roleLabel = user.role.toLowerCase();
     final isAdmin = roleLabel == 'admin';
@@ -674,7 +738,9 @@ class _UserCard extends StatelessWidget {
           color: isSelected ? const Color(0xFFF7F9FF) : AppThemeColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? AppThemeColors.primary : const Color(0xFFE1E7F0),
+            color: isSelected
+                ? AppThemeColors.primary
+                : const Color(0xFFE1E7F0),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -710,7 +776,10 @@ class _UserCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: statusLabel == 'disabled'
                                   ? const Color(0xFFF3F4F6)
@@ -747,7 +816,10 @@ class _UserCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: isAdmin
                         ? const Color(0xFFF1E8FF)
@@ -759,7 +831,9 @@ class _UserCard extends StatelessWidget {
                   child: Text(
                     roleLabel,
                     style: TextStyle(
-                      color: isAdmin ? const Color(0xFF7C3AED) : const Color(0xFF2563EB),
+                      color: isAdmin
+                          ? const Color(0xFF7C3AED)
+                          : const Color(0xFF2563EB),
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                     ),
@@ -797,14 +871,22 @@ class _UserCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () {},
                     icon: Icon(
-                      user.status == 'disabled' ? Icons.check_circle_outline : Icons.block_outlined,
+                      user.status == 'disabled'
+                          ? Icons.check_circle_outline
+                          : Icons.block_outlined,
                       size: 16,
                     ),
-                    label: Text(user.status == 'disabled' ? 'Enable' : 'Disable'),
+                    label: Text(
+                      user.status == 'disabled' ? 'Enable' : 'Disable',
+                    ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: user.status == 'disabled' ? Colors.green : Colors.red,
+                      foregroundColor: user.status == 'disabled'
+                          ? Colors.green
+                          : Colors.red,
                       side: BorderSide(
-                        color: user.status == 'disabled' ? Colors.green : Colors.red,
+                        color: user.status == 'disabled'
+                            ? Colors.green
+                            : Colors.red,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -837,14 +919,15 @@ class _UserDetailCard extends StatelessWidget {
       return const Center(child: Text('No user selected'));
     }
 
-    final initials = (user!.displayName?.trim().isNotEmpty == true
-            ? user!.displayName!
-            : user!.email)
-        .split(RegExp(r'\s+'))
-        .map((part) => part[0])
-        .take(2)
-        .join()
-        .toUpperCase();
+    final initials =
+        (user!.displayName?.trim().isNotEmpty == true
+                ? user!.displayName!
+                : user!.email)
+            .split(RegExp(r'\s+'))
+            .map((part) => part[0])
+            .take(2)
+            .join()
+            .toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -897,7 +980,10 @@ class _UserDetailCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: user!.status == 'disabled'
                       ? const Color(0xFFF3F4F6)
@@ -917,7 +1003,10 @@ class _UserDetailCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: user!.role == 'admin'
                       ? const Color(0xFFF1E8FF)
@@ -941,9 +1030,15 @@ class _UserDetailCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _InfoRow(label: 'Joined', value: _formatDate(user!.createdAt)),
-          _InfoRow(label: 'Last active', value: _formatDate(user!.lastActiveAt)),
+          _InfoRow(
+            label: 'Last active',
+            value: _formatDate(user!.lastActiveAt),
+          ),
           _InfoRow(label: 'Role', value: user!.role),
-          _InfoRow(label: 'Notifications', value: user!.notificationsEnabled ? 'Enabled' : 'Disabled'),
+          _InfoRow(
+            label: 'Notifications',
+            value: user!.notificationsEnabled ? 'Enabled' : 'Disabled',
+          ),
           const Spacer(),
           const SizedBox(height: 20),
           Row(
@@ -968,14 +1063,22 @@ class _UserDetailCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: () {},
                   icon: Icon(
-                    user!.status == 'disabled' ? Icons.check_circle_outline : Icons.block_outlined,
+                    user!.status == 'disabled'
+                        ? Icons.check_circle_outline
+                        : Icons.block_outlined,
                     size: 16,
                   ),
-                  label: Text(user!.status == 'disabled' ? 'Enable' : 'Disable'),
+                  label: Text(
+                    user!.status == 'disabled' ? 'Enable' : 'Disable',
+                  ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: user!.status == 'disabled' ? Colors.green : Colors.red,
+                    foregroundColor: user!.status == 'disabled'
+                        ? Colors.green
+                        : Colors.red,
                     side: BorderSide(
-                      color: user!.status == 'disabled' ? Colors.green : Colors.red,
+                      color: user!.status == 'disabled'
+                          ? Colors.green
+                          : Colors.red,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -1022,9 +1125,7 @@ class _InfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -1079,13 +1180,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             final initials = name.trim().isEmpty
                 ? 'JD'
                 : name
-                    .trim()
-                    .split(RegExp(r'\s+'))
-                    .where((segment) => segment.isNotEmpty)
-                    .take(2)
-                    .map((segment) => segment[0])
-                    .join()
-                    .toUpperCase();
+                      .trim()
+                      .split(RegExp(r'\s+'))
+                      .where((segment) => segment.isNotEmpty)
+                      .take(2)
+                      .map((segment) => segment[0])
+                      .join()
+                      .toUpperCase();
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -1329,7 +1430,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 const SizedBox(height: 16),
                 const Center(
                   child: Text(
-                    'Air Quality Monitor v1.0.0\n© 2026 All rights reserved',
+                    'AirSense v1.0.0\n© 2026 All rights reserved',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
@@ -1347,12 +1448,11 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature is coming soon.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$feature is coming soon.')));
   }
 }
-
 
 class _SectionLabel extends StatelessWidget {
   final String text;
@@ -1384,9 +1484,7 @@ class _SettingsGroup extends StatelessWidget {
       decoration: AppThemeStyles.cardDecoration(),
       child: Column(
         children: [
-          for (int i = 0; i < children.length; i++) ...[
-            children[i],
-          ],
+          for (int i = 0; i < children.length; i++) ...[children[i]],
         ],
       ),
     );
@@ -1457,7 +1555,10 @@ class _SettingsRow extends StatelessWidget {
             ),
             if (badge != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: badgeBackground ?? const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(18),

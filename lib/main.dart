@@ -14,7 +14,7 @@ import 'features/alerts/screens/alerts_screen.dart';
 import 'features/alerts/services/alert_service.dart';
 import 'features/alerts/services/alert_preference_service.dart';
 import 'features/alerts/screens/alert_settings_screen.dart';
-import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/welcome_screen.dart';
 import 'screens/user_dashboard.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/reports_screen.dart';
@@ -62,7 +62,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Air Quality Monitor',
+      title: 'AirSense',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(),
       home: const AuthWrapper(),
@@ -83,6 +83,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   String? _ensuredUid;
   String? _touchedUid;
   bool _isHandlingDisabledUser = false;
+  bool _isResettingNavAfterSignOut = false;
 
   void _ensureUserDoc(String uid) {
     if (_ensuredUid == uid) return;
@@ -94,6 +95,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_touchedUid == uid) return;
     _touchedUid = uid;
     _userService.touchCurrentUserActivity();
+  }
+
+  void _resetNavigationAfterSignOut() {
+    if (_isResettingNavAfterSignOut) return;
+    _isResettingNavAfterSignOut = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      navigatorKey.currentState?.popUntil((route) => route.isFirst);
+      _isResettingNavAfterSignOut = false;
+    });
   }
 
   @override
@@ -108,6 +118,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
 
         if (snapshot.hasData) {
+          _isResettingNavAfterSignOut = false;
           final authUser = snapshot.data!;
           _ensureUserDoc(authUser.uid);
 
@@ -173,7 +184,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
           );
         }
 
-        return const LoginScreen();
+        _ensuredUid = null;
+        _touchedUid = null;
+        _isHandlingDisabledUser = false;
+        _resetNavigationAfterSignOut();
+        return const WelcomeScreen();
       },
     );
   }

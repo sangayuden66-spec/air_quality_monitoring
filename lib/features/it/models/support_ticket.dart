@@ -8,6 +8,8 @@ enum TicketStatus { open, inProgress, resolved }
 class SupportTicket {
   final String id;
   final String requesterName;
+  final String requesterEmail;
+  final String subject;
   final String category;
   final String description;
   final TicketPriority priority;
@@ -17,6 +19,8 @@ class SupportTicket {
   const SupportTicket({
     required this.id,
     required this.requesterName,
+    required this.requesterEmail,
+    required this.subject,
     required this.category,
     required this.description,
     required this.priority,
@@ -25,18 +29,19 @@ class SupportTicket {
   });
 
   factory SupportTicket.fromFirestore(
-      QueryDocumentSnapshot<Map<String, dynamic>> doc,
-      ) {
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data();
     return SupportTicket(
       id: doc.id,
       requesterName: (data['requesterName'] as String?) ?? 'Unknown',
+      requesterEmail: (data['requesterEmail'] as String?) ?? '',
+      subject: (data['subject'] as String?) ?? 'No subject',
       category: (data['category'] as String?) ?? 'General',
       description: (data['description'] as String?) ?? '',
       priority: _parsePriority(data['priority']),
       status: _parseStatus(data['status']),
-      createdAt:
-      (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -108,6 +113,17 @@ class SupportTicket {
   }
 
   bool get isFilledStatusBadge => status == TicketStatus.inProgress;
+
+  String get statusDisplayLabel {
+    switch (status) {
+      case TicketStatus.open:
+        return 'Open';
+      case TicketStatus.inProgress:
+        return 'In Progress';
+      case TicketStatus.resolved:
+        return 'Resolved';
+    }
+  }
 
   String get timeAgo {
     final duration = DateTime.now().difference(createdAt);

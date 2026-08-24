@@ -43,7 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
 
-      // Navigation is automatically handled by AuthWrapper in main.dart
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (e) {
       debugPrint('Login Error: $e');
       setState(() {
@@ -140,11 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.air,
-                    size: 80,
-                    color: AppThemeColors.primary,
-                  ),
+                  Image.asset('logo.png', width: 160, height: 160),
                   const SizedBox(height: 32),
                   const Text(
                     'Welcome Back',

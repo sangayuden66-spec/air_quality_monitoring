@@ -20,8 +20,10 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
   final AuthService _authService = AuthService();
   final ItSettingsService _settingsService = ItSettingsService();
 
-  Future<void> _updatePrefs(ItSettingsPreferences current,
-      ItSettingsPreferences Function(ItSettingsPreferences) change) async {
+  Future<void> _updatePrefs(
+    ItSettingsPreferences current,
+    ItSettingsPreferences Function(ItSettingsPreferences) change,
+  ) async {
     await _settingsService.savePreferences(change(current));
   }
 
@@ -30,7 +32,9 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Log out?'),
-        content: const Text('You will need to sign in again to access the IT dashboard.'),
+        content: const Text(
+          'You will need to sign in again to access the IT dashboard.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -49,9 +53,9 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
   }
 
   void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature isn\'t available yet.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$feature isn\'t available yet.')));
   }
 
   @override
@@ -67,22 +71,28 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
                 children: [
                   IconButton(
                     onPressed:
-                    widget.onBack ?? () => Navigator.maybePop(context),
-                    icon: const Icon(Icons.arrow_back,
-                        color: AppThemeColors.textPrimary),
+                        widget.onBack ?? () => Navigator.maybePop(context),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppThemeColors.textPrimary,
+                    ),
                   ),
                   const Expanded(
                     child: Column(
                       children: [
                         Text(
                           'Settings',
-                          style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         Text(
                           'IT Staff Account',
                           style: TextStyle(
-                              fontSize: 12, color: AppThemeColors.textSecondary),
+                            fontSize: 12,
+                            color: AppThemeColors.textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -108,125 +118,145 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
                           const SizedBox(height: 20),
                           const _SectionLabel('Account'),
                           const SizedBox(height: 8),
-                          _CardGroup(children: [
-                            _SettingsRow(
-                              icon: Icons.person_outline,
-                              title: 'Edit Profile',
-                              subtitle: 'Update name and contact info',
-                              onTap: () => _showComingSoon('Editing your profile'),
-                            ),
-                            _SettingsRow(
-                              icon: Icons.lock_outline,
-                              title: 'Change Password',
-                              subtitle: 'Update your password',
-                              onTap: () =>
-                                  _showComingSoon('Changing your password'),
-                            ),
-                            _SettingsRow(
-                              icon: Icons.mail_outline,
-                              title: 'Email Address',
-                              subtitle: user?.email ?? '—',
-                              onTap: () =>
-                                  _showComingSoon('Editing your email'),
-                            ),
-                            _SettingsRow(
-                              icon: Icons.phone_iphone_outlined,
-                              title: 'Two-Factor Auth',
-                              subtitle: 'Enabled via authenticator app',
-                              badge: 'Coming soon',
-                              badgeColor: AppThemeColors.textSecondary,
-                              badgeBackground: const Color(0xFFEEF0F4),
-                              onTap: () =>
-                                  _showComingSoon('Two-factor authentication'),
-                            ),
-                          ]),
+                          _CardGroup(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.person_outline,
+                                title: 'Edit Profile',
+                                subtitle: 'Update name and contact info',
+                                onTap: () =>
+                                    _showComingSoon('Editing your profile'),
+                              ),
+                              _SettingsRow(
+                                icon: Icons.lock_outline,
+                                title: 'Change Password',
+                                subtitle: 'Update your password',
+                                onTap: () =>
+                                    _showComingSoon('Changing your password'),
+                              ),
+                              _SettingsRow(
+                                icon: Icons.mail_outline,
+                                title: 'Email Address',
+                                subtitle: user?.email ?? '—',
+                                onTap: () =>
+                                    _showComingSoon('Editing your email'),
+                              ),
+                              _SettingsRow(
+                                icon: Icons.phone_iphone_outlined,
+                                title: 'Two-Factor Auth',
+                                subtitle: 'Enabled via authenticator app',
+                                badge: 'Coming soon',
+                                badgeColor: AppThemeColors.textSecondary,
+                                badgeBackground: const Color(0xFFEEF0F4),
+                                onTap: () => _showComingSoon(
+                                  'Two-factor authentication',
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 20),
                           const _SectionLabel('Notifications'),
                           const SizedBox(height: 8),
-                          _CardGroup(children: [
-                            _ToggleRow(
-                              icon: Icons.notifications_active_rounded,
-                              iconColor: const Color(0xFF7C3AED),
-                              iconBackground: const Color(0xFFF1EBFB),
-                              title: 'Critical System Alerts',
-                              subtitle: 'Server down, API failures',
-                              value: prefs.criticalSystemAlerts,
-                              onChanged: (v) => _updatePrefs(prefs,
-                                      (p) => p.copyWith(criticalSystemAlerts: v)),
-                            ),
-                            _ToggleRow(
-                              icon: Icons.notifications_active_rounded,
-                              iconColor: const Color(0xFF7C3AED),
-                              iconBackground: const Color(0xFFF1EBFB),
-                              title: 'New Support Tickets',
-                              subtitle: 'Notify when tickets are assigned',
-                              value: prefs.newSupportTickets,
-                              onChanged: (v) => _updatePrefs(prefs,
-                                      (p) => p.copyWith(newSupportTickets: v)),
-                            ),
-                            _ToggleRow(
-                              icon: Icons.notifications_active_rounded,
-                              iconColor: const Color(0xFF7C3AED),
-                              iconBackground: const Color(0xFFF1EBFB),
-                              title: 'Maintenance Reminders',
-                              subtitle: 'Upcoming scheduled tasks',
-                              value: prefs.maintenanceReminders,
-                              onChanged: (v) => _updatePrefs(prefs,
-                                      (p) => p.copyWith(maintenanceReminders: v)),
-                            ),
-                            _ToggleRow(
-                              icon: Icons.mail_outline,
-                              iconColor: const Color(0xFF7C3AED),
-                              iconBackground: const Color(0xFFF1EBFB),
-                              title: 'Daily Email Digest',
-                              subtitle: 'Summary of system health',
-                              value: prefs.dailyEmailDigest,
-                              onChanged: (v) => _updatePrefs(
-                                  prefs, (p) => p.copyWith(dailyEmailDigest: v)),
-                            ),
-                          ]),
+                          _CardGroup(
+                            children: [
+                              _ToggleRow(
+                                icon: Icons.notifications_active_rounded,
+                                iconColor: const Color(0xFF7C3AED),
+                                iconBackground: const Color(0xFFF1EBFB),
+                                title: 'Critical System Alerts',
+                                subtitle: 'Server down, API failures',
+                                value: prefs.criticalSystemAlerts,
+                                onChanged: (v) => _updatePrefs(
+                                  prefs,
+                                  (p) => p.copyWith(criticalSystemAlerts: v),
+                                ),
+                              ),
+                              _ToggleRow(
+                                icon: Icons.notifications_active_rounded,
+                                iconColor: const Color(0xFF7C3AED),
+                                iconBackground: const Color(0xFFF1EBFB),
+                                title: 'New Support Tickets',
+                                subtitle: 'Notify when tickets are assigned',
+                                value: prefs.newSupportTickets,
+                                onChanged: (v) => _updatePrefs(
+                                  prefs,
+                                  (p) => p.copyWith(newSupportTickets: v),
+                                ),
+                              ),
+                              _ToggleRow(
+                                icon: Icons.notifications_active_rounded,
+                                iconColor: const Color(0xFF7C3AED),
+                                iconBackground: const Color(0xFFF1EBFB),
+                                title: 'Maintenance Reminders',
+                                subtitle: 'Upcoming scheduled tasks',
+                                value: prefs.maintenanceReminders,
+                                onChanged: (v) => _updatePrefs(
+                                  prefs,
+                                  (p) => p.copyWith(maintenanceReminders: v),
+                                ),
+                              ),
+                              _ToggleRow(
+                                icon: Icons.mail_outline,
+                                iconColor: const Color(0xFF7C3AED),
+                                iconBackground: const Color(0xFFF1EBFB),
+                                title: 'Daily Email Digest',
+                                subtitle: 'Summary of system health',
+                                value: prefs.dailyEmailDigest,
+                                onChanged: (v) => _updatePrefs(
+                                  prefs,
+                                  (p) => p.copyWith(dailyEmailDigest: v),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 20),
                           const _SectionLabel('Display'),
                           const SizedBox(height: 8),
-                          _CardGroup(children: [
-                            _ToggleRow(
-                              icon: Icons.dark_mode_outlined,
-                              iconColor: AppThemeColors.textSecondary,
-                              iconBackground: const Color(0xFFEEF0F4),
-                              title: 'Dark Mode',
-                              subtitle: 'Coming soon',
-                              value: false,
-                              onChanged: null,
-                              dimmed: true,
-                            ),
-                            _ToggleRow(
-                              icon: Icons.desktop_windows_outlined,
-                              iconColor: AppThemeColors.textSecondary,
-                              iconBackground: const Color(0xFFEEF0F4),
-                              title: 'Compact View',
-                              subtitle: 'Denser data tables and lists',
-                              value: prefs.compactView,
-                              onChanged: (v) => _updatePrefs(
-                                  prefs, (p) => p.copyWith(compactView: v)),
-                            ),
-                          ]),
+                          _CardGroup(
+                            children: [
+                              _ToggleRow(
+                                icon: Icons.dark_mode_outlined,
+                                iconColor: AppThemeColors.textSecondary,
+                                iconBackground: const Color(0xFFEEF0F4),
+                                title: 'Dark Mode',
+                                subtitle: 'Coming soon',
+                                value: false,
+                                onChanged: null,
+                                dimmed: true,
+                              ),
+                              _ToggleRow(
+                                icon: Icons.desktop_windows_outlined,
+                                iconColor: AppThemeColors.textSecondary,
+                                iconBackground: const Color(0xFFEEF0F4),
+                                title: 'Compact View',
+                                subtitle: 'Denser data tables and lists',
+                                value: prefs.compactView,
+                                onChanged: (v) => _updatePrefs(
+                                  prefs,
+                                  (p) => p.copyWith(compactView: v),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 20),
                           const _SectionLabel('About'),
                           const SizedBox(height: 8),
-                          _CardGroup(children: [
-                            _SettingsRow(
-                              icon: Icons.info_outline_rounded,
-                              iconColor: const Color(0xFF2D7EF7),
-                              iconBackground: const Color(0xFFE7F0FE),
-                              title: 'App Version',
-                              subtitle: 'Air Quality Monitor v1.0.0 (IT Build)',
-                              onTap: () => showAboutDialog(
-                                context: context,
-                                applicationName: 'Air Quality Monitor',
-                                applicationVersion: 'v1.0.0 (IT Build)',
+                          _CardGroup(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.info_outline_rounded,
+                                iconColor: const Color(0xFF2D7EF7),
+                                iconBackground: const Color(0xFFE7F0FE),
+                                title: 'App Version',
+                                subtitle: 'AirSense v1.0.0 (IT Build)',
+                                onTap: () => showAboutDialog(
+                                  context: context,
+                                  applicationName: 'AirSense',
+                                  applicationVersion: 'v1.0.0 (IT Build)',
+                                ),
                               ),
-                            ),
-                          ]),
+                            ],
+                          ),
                           const SizedBox(height: 24),
                           SizedBox(
                             width: double.infinity,
@@ -235,8 +265,9 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFDC2626),
                                 foregroundColor: Colors.white,
-                                padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -286,13 +317,13 @@ class _ProfileCard extends StatelessWidget {
     final initials = name.trim().isEmpty
         ? '?'
         : name
-        .trim()
-        .split(' ')
-        .where((s) => s.isNotEmpty)
-        .map((s) => s[0])
-        .take(2)
-        .join()
-        .toUpperCase();
+              .trim()
+              .split(' ')
+              .where((s) => s.isNotEmpty)
+              .map((s) => s[0])
+              .take(2)
+              .join()
+              .toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -329,11 +360,17 @@ class _ProfileCard extends StatelessWidget {
                 ),
                 Text(
                   email,
-                  style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13),
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.22),
                     borderRadius: BorderRadius.circular(20),
@@ -341,7 +378,11 @@ class _ProfileCard extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.shield_outlined, size: 13, color: Colors.white),
+                      Icon(
+                        Icons.shield_outlined,
+                        size: 13,
+                        color: Colors.white,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'IT Access',
@@ -389,15 +430,7 @@ class _CardGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppThemeStyles.cardDecoration(),
-      child: Column(
-        children: [
-          for (int i = 0; i < children.length; i++) ...[
-            children[i],
-            if (i != children.length - 1)
-              const Divider(height: 1, indent: 16, endIndent: 16),
-          ],
-        ],
-      ),
+      child: Column(children: children),
     );
   }
 }
@@ -439,26 +472,40 @@ class _SettingsRow extends StatelessWidget {
                 color: iconBackground ?? const Color(0xFFE7F0FE),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon,
-                  color: iconColor ?? const Color(0xFF2D7EF7), size: 20),
+              child: Icon(
+                icon,
+                color: iconColor ?? const Color(0xFF2D7EF7),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 14)),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppThemeColors.textSecondary)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppThemeColors.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
             if (badge != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: badgeBackground ?? const Color(0xFFE7F8EF),
                   borderRadius: BorderRadius.circular(20),
@@ -474,8 +521,10 @@ class _SettingsRow extends StatelessWidget {
               ),
               const SizedBox(width: 6),
             ],
-            const Icon(Icons.chevron_right_rounded,
-                color: AppThemeColors.textSecondary),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppThemeColors.textSecondary,
+            ),
           ],
         ),
       ),
@@ -523,17 +572,23 @@ class _ToggleRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: dimmed
-                          ? AppThemeColors.textSecondary
-                          : AppThemeColors.textPrimary,
-                    )),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppThemeColors.textSecondary)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: dimmed
+                        ? AppThemeColors.textSecondary
+                        : AppThemeColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppThemeColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),

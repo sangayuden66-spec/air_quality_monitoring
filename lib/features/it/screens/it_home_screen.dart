@@ -5,6 +5,7 @@ import '../models/support_ticket.dart';
 import '../models/system_task.dart';
 import '../models/system_alert_item.dart';
 import '../services/it_home_service.dart';
+import '../services/it_support_service.dart';
 
 class ItHomeScreen extends StatefulWidget {
   final VoidCallback? onViewAllTickets;
@@ -33,7 +34,7 @@ class _ItHomeScreenState extends State<ItHomeScreen> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                _Header(),
+                _Header(onOpenSupport: widget.onViewAllTickets),
                 const SizedBox(height: 16),
                 _SearchBar(),
                 const SizedBox(height: 16),
@@ -59,6 +60,11 @@ class _ItHomeScreenState extends State<ItHomeScreen> {
 }
 
 class _Header extends StatelessWidget {
+  final VoidCallback? onOpenSupport;
+  final ItSupportService _supportService = ItSupportService();
+
+  _Header({this.onOpenSupport});
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -79,17 +85,60 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppThemeColors.surface,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppThemeColors.border),
-          ),
-          child: const Icon(
-            Icons.notifications_none_rounded,
-            color: AppThemeColors.textPrimary,
+        InkWell(
+          onTap: onOpenSupport,
+          customBorder: const CircleBorder(),
+          child: StreamBuilder<int>(
+            stream: _supportService.watchUnreadNotificationCount(),
+            builder: (context, snapshot) {
+              final unread = snapshot.data ?? 0;
+              return Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppThemeColors.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppThemeColors.border),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Center(
+                      child: Icon(
+                        Icons.notifications_none_rounded,
+                        color: AppThemeColors.textPrimary,
+                      ),
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDC2626),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            unread > 99 ? '99+' : '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -248,7 +297,8 @@ class _Pill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: background ??
+        color:
+            background ??
             (filled ? AppThemeColors.textPrimary : const Color(0xFFEEF0F4)),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -257,8 +307,8 @@ class _Pill extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: textColor ??
-              (filled ? Colors.white : AppThemeColors.textPrimary),
+          color:
+              textColor ?? (filled ? Colors.white : AppThemeColors.textPrimary),
         ),
       ),
     );
@@ -358,8 +408,10 @@ class _SupportTicketsSection extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.help_outline_rounded,
-                      color: AppThemeColors.textPrimary),
+                  Icon(
+                    Icons.help_outline_rounded,
+                    color: AppThemeColors.textPrimary,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Support Tickets',
@@ -408,7 +460,10 @@ class _TicketCard extends StatelessWidget {
             children: [
               Text(
                 ticket.requesterName,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(width: 8),
               _Pill(
@@ -418,21 +473,30 @@ class _TicketCard extends StatelessWidget {
                 background: ticket.priorityBackground,
               ),
               const SizedBox(width: 6),
-              _Pill(text: ticket.statusLabel, filled: ticket.isFilledStatusBadge),
+              _Pill(
+                text: ticket.statusLabel,
+                filled: ticket.isFilledStatusBadge,
+              ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             ticket.category,
-            style: const TextStyle(fontSize: 12, color: AppThemeColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppThemeColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 6),
           Text(ticket.description, style: const TextStyle(fontSize: 13)),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.access_time_rounded,
-                  size: 13, color: AppThemeColors.textSecondary),
+              const Icon(
+                Icons.access_time_rounded,
+                size: 13,
+                color: AppThemeColors.textSecondary,
+              ),
               const SizedBox(width: 4),
               Text(
                 ticket.timeAgo,
@@ -504,7 +568,10 @@ class _TaskRow extends StatelessWidget {
               children: [
                 Text(
                   task.title,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
                 Text(
                   task.subtitle,
@@ -538,7 +605,10 @@ class _SystemAlertsSection extends StatelessWidget {
         children: [
           const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppThemeColors.textPrimary),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: AppThemeColors.textPrimary,
+              ),
               SizedBox(width: 8),
               Text(
                 'System Alerts',

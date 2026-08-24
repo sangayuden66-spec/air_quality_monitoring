@@ -9,6 +9,10 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
     function isActiveUser() {
       return signedIn() &&
           currentUserDoc().exists() &&
@@ -23,6 +27,12 @@ service cloud.firestore {
 
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
+    }
+
+    function isITUser(uid) {
+      return userDoc(uid).exists() &&
+          userDoc(uid).data.role == 'it' &&
+          userDoc(uid).data.status == 'active';
     }
 
     function selfRoleStatusUnchanged() {
@@ -61,6 +71,40 @@ service cloud.firestore {
       match /devices/{deviceId} {
         allow read, write: if isSelf(uid) || isPrivilegedUser();
       }
+
+      match /supportTickets/{ticketId} {
+        allow read: if isSelf(uid) || isPrivilegedUser();
+        allow create: if isSelf(uid) &&
+            request.resource.data.userId == uid;
+        allow update: if
+            (isSelf(uid) &&
+                request.resource.data.userId == resource.data.userId &&
+                request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                  'status',
+                  'updatedAt'
+                ])) ||
+            isPrivilegedUser();
+        allow delete: if false;
+      }
+
+      match /itNotifications/{notificationId} {
+        allow read: if isSelf(uid) || isPrivilegedUser();
+        allow create: if isActiveUser() &&
+            isITUser(uid) &&
+            request.resource.data.type == 'support_ticket' &&
+            request.resource.data.createdByUid == request.auth.uid;
+        allow update: if isSelf(uid) || isPrivilegedUser();
+        allow delete: if false;
+      }
+    }
+
+    match /supportTickets/{ticketId} {
+      allow read: if isPrivilegedUser() ||
+          (isActiveUser() && resource.data.userId == request.auth.uid);
+      allow create: if isActiveUser() &&
+          request.resource.data.userId == request.auth.uid;
+      allow update: if isPrivilegedUser();
+      allow delete: if false;
     }
 
     match /reports/{reportId} {
