@@ -79,7 +79,7 @@ class _NotificationPreferencesScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Alert Preferences'),
         actions: [

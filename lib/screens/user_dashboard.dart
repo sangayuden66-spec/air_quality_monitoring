@@ -136,7 +136,7 @@ class _UserDashboardState extends State<UserDashboard> {
     return RefreshIndicator(
       onRefresh: _fetchData,
       child: Container(
-        color: AppThemeColors.background,
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           physics: const AlwaysScrollableScrollPhysics(),
@@ -288,7 +288,7 @@ class _PollutantGrid extends StatelessWidget {
         final p = pollutants[index];
         return Card(
           elevation: 0,
-          color: AppThemeColors.surface,
+          color: Theme.of(context).colorScheme.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: const BorderSide(color: AppThemeColors.border),
@@ -360,7 +360,7 @@ class _LocationPreview extends StatelessWidget {
           height: 180,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: AppThemeColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             border: Border.all(color: AppThemeColors.border),
           ),
           child: ClipRRect(
@@ -446,7 +446,7 @@ class _HistoryChart extends StatelessWidget {
           height: 200,
           padding: const EdgeInsets.fromLTRB(10, 20, 20, 10),
           decoration: BoxDecoration(
-            color: AppThemeColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppThemeColors.border),
           ),
@@ -669,7 +669,7 @@ class _ReportCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppThemeColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppThemeColors.border),
       ),

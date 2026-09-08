@@ -30,7 +30,7 @@ class _ItMainScreenState extends State<ItMainScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,

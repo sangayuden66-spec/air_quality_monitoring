@@ -64,4 +64,22 @@ class AuthService {
   Future<void> resetPassword(String email) async {
     await _auth.sendPasswordResetEmail(email: email);
   }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw Exception('No signed-in user found.');
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(newPassword);
+  }
 }

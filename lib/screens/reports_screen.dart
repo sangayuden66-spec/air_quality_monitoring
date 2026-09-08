@@ -157,7 +157,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppThemeColors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppThemeColors.border),
                   boxShadow: const [

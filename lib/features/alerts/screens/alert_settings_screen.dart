@@ -1,13 +1,212 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/services/auth_service.dart';
 import 'contact_support_screen.dart';
 import 'notification_preferences_screen.dart';
 
-class AlertSettingsScreen extends StatelessWidget {
+class AlertSettingsScreen extends StatefulWidget {
   const AlertSettingsScreen({super.key});
+
+  @override
+  State<AlertSettingsScreen> createState() => _AlertSettingsScreenState();
+}
+
+class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
+  final UserService _userService = UserService();
+  final AuthService _authService = AuthService();
+  bool _isUpdatingTheme = false;
+
+  Future<void> _toggleThemeMode(bool isDark) async {
+    if (_isUpdatingTheme) return;
+
+    setState(() => _isUpdatingTheme = true);
+    try {
+      await _userService.updateThemeMode(isDark: isDark);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBarMessage('Failed to update dark mode: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingTheme = false);
+      }
+    }
+  }
+
+  void _showSnackBarMessage(String message) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    });
+  }
+
+  Future<void> _showEditProfileDialog(UserModel? user) async {
+    if (user == null) {
+      _showSnackBarMessage('Unable to load your profile right now.');
+      return;
+    }
+
+    final currentName =
+        user.displayName?.trim().isNotEmpty == true ? user.displayName!.trim() : '';
+    final nameController = TextEditingController(text: currentName);
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: TextField(
+          controller: nameController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Display name',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || shouldSave != true) return;
+
+    final newName = nameController.text.trim();
+    if (newName.isEmpty) {
+      _showSnackBarMessage('Display name cannot be empty.');
+      return;
+    }
+
+    try {
+      await _userService.updateDisplayName(newName);
+      if (!mounted) return;
+      _showSnackBarMessage('Profile updated successfully.');
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBarMessage('Failed to update profile: $error');
+    }
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    String? validationError;
+
+    final shouldChange = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Change Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: currentPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'New password',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm new password',
+                ),
+              ),
+              if (validationError != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  validationError!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final currentPassword = currentPasswordController.text.trim();
+                final newPassword = newPasswordController.text.trim();
+                final confirmPassword = confirmPasswordController.text.trim();
+
+                if (currentPassword.isEmpty ||
+                    newPassword.isEmpty ||
+                    confirmPassword.isEmpty) {
+                  setDialogState(
+                    () => validationError = 'Please fill in all password fields.',
+                  );
+                  return;
+                }
+                if (newPassword.length < 6) {
+                  setDialogState(
+                    () => validationError =
+                        'New password must be at least 6 characters.',
+                  );
+                  return;
+                }
+                if (newPassword != confirmPassword) {
+                  setDialogState(
+                    () => validationError =
+                        'New password and confirmation do not match.',
+                  );
+                  return;
+                }
+
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || shouldChange != true) return;
+
+    try {
+      await _authService.changePassword(
+        currentPassword: currentPasswordController.text.trim(),
+        newPassword: newPasswordController.text.trim(),
+      );
+      if (!mounted) return;
+      _showSnackBarMessage('Password changed successfully.');
+    } catch (error) {
+      if (!mounted) return;
+      final errorText = error.toString().toLowerCase();
+      final message = errorText.contains('wrong-password') ||
+              errorText.contains('invalid-credential')
+          ? 'Current password is incorrect.'
+          : 'Failed to change password: $error';
+      _showSnackBarMessage(message);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +230,7 @@ class AlertSettingsScreen extends StatelessWidget {
             .take(2)
             .map((p) => p[0].toUpperCase())
             .join();
+        final isDarkMode = (snapshot.data?.themeMode ?? 'light') == 'dark';
 
         final sections = [
           _SectionHeader('Profile'),
@@ -42,7 +242,7 @@ class AlertSettingsScreen extends StatelessWidget {
                 iconBg: const Color(0xFFEAF3FF),
                 title: 'Edit Profile',
                 subtitle: 'Update your personal information',
-                onTap: () {},
+                onTap: () => _showEditProfileDialog(snapshot.data),
               ),
               _SettingsTile(
                 icon: Icons.location_on_outlined,
@@ -81,7 +281,7 @@ class AlertSettingsScreen extends StatelessWidget {
                 iconBg: const Color(0xFFE8F7EE),
                 title: 'Change Password',
                 subtitle: 'Update your password',
-                onTap: () {},
+                onTap: _showChangePasswordDialog,
               ),
               _SettingsTile(
                 icon: Icons.privacy_tip_outlined,
@@ -110,8 +310,14 @@ class AlertSettingsScreen extends StatelessWidget {
                 iconColor: const Color(0xFFAD63D6),
                 iconBg: const Color(0xFFF6ECFF),
                 title: 'Dark Mode',
-                subtitle: 'Coming soon',
-                onTap: () {},
+                subtitle: isDarkMode ? 'Enabled' : 'Disabled',
+                onTap: null,
+                trailing: Switch(
+                  value: isDarkMode,
+                  onChanged:
+                      _isUpdatingTheme ? null : (value) => _toggleThemeMode(value),
+                ),
+                showChevron: false,
               ),
               _SettingsTile(
                 icon: Icons.language_outlined,
@@ -197,7 +403,7 @@ class AlertSettingsScreen extends StatelessWidget {
         ];
 
         return Scaffold(
-          backgroundColor: AppThemeColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: SafeArea(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
@@ -338,8 +544,10 @@ class _SettingsTile extends StatelessWidget {
   final Color iconBg;
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String? trailingBadge;
+  final Widget? trailing;
+  final bool showChevron;
 
   const _SettingsTile({
     required this.icon,
@@ -349,75 +557,85 @@ class _SettingsTile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.trailingBadge,
+    this.trailing,
+    this.showChevron = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
+    final trailingWidget = trailing;
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppThemeColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (trailingBadge != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Text(
-                  trailingBadge!,
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: AppThemeColors.primary,
                   ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppThemeColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailingBadge != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 4,
               ),
-              const SizedBox(width: 8),
-            ],
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Text(
+                trailingBadge!,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppThemeColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          ...(trailingWidget != null
+              ? [trailingWidget]
+              : const <Widget>[]),
+          ...((trailingWidget != null && showChevron)
+              ? [const SizedBox(width: 6)]
+              : const <Widget>[]),
+          if (showChevron)
             const Icon(
               Icons.chevron_right_rounded,
               color: AppThemeColors.textSecondary,
             ),
-          ],
-        ),
+        ],
       ),
     );
+
+    if (onTap == null) return content;
+    return InkWell(onTap: onTap, child: content);
   }
 }

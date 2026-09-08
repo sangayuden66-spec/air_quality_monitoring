@@ -20,7 +20,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<List<NotificationHistoryItem>>(
         stream: _historyService.getHistoryStream(),
         builder: (context, snapshot) {
@@ -49,7 +49,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
               SafeArea(
                 bottom: false,
                 child: Container(
-                  color: AppThemeColors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
                   child: Column(
                     children: [
@@ -116,7 +116,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
               Expanded(
                 child: Container(
-                  color: AppThemeColors.background,
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   child: filteredItems.isEmpty
                       ? Center(
                           child: Column(
@@ -364,7 +364,7 @@ class _HistoryListItem extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppThemeColors.surface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

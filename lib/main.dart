@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -55,8 +57,70 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final UserService _userService = UserService();
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<String>? _themeSubscription;
+  ThemeMode _themeMode = ThemeMode.light;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen(
+      _handleAuthStateChanged,
+    );
+  }
+
+  void _handleAuthStateChanged(User? user) {
+    _themeSubscription?.cancel();
+    _themeSubscription = null;
+
+    if (user == null) {
+      _setThemeMode(ThemeMode.light);
+      return;
+    }
+
+    _themeSubscription = _userService
+        .watchUserById(user.uid)
+        .map((userDoc) => userDoc?.themeMode ?? 'light')
+        .distinct()
+        .listen(
+          (themeMode) {
+        _setThemeMode(
+          themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light,
+        );
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('Theme preference stream error: $error');
+      },
+    );
+  }
+
+  void _setThemeMode(ThemeMode mode) {
+    if (!mounted) return;
+
+    AppThemeState.currentThemeMode = mode;
+
+    if (_themeMode == mode) return;
+
+    setState(() {
+      _themeMode = mode;
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    _themeSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +129,9 @@ class MyApp extends StatelessWidget {
       title: 'AirSense',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
+      themeMode: _themeMode,
+      themeAnimationDuration: Duration.zero,
       home: const AuthWrapper(),
     );
   }
@@ -208,7 +275,7 @@ class _MainScreenState extends State<MainScreen> {
   String? _locationError;
   final AlertService _alertService = AlertService();
   final AlertPreferenceService _alertPreferenceService =
-      AlertPreferenceService();
+  AlertPreferenceService();
 
   @override
   void initState() {
@@ -378,44 +445,44 @@ class _MainScreenState extends State<MainScreen> {
       appBar: _selectedIndex == 1
           ? null
           : AppBar(
-              backgroundColor: AppThemeColors.surface,
-              elevation: 0,
-              title: Text(
-                _getAppBarTitle(),
-                style: const TextStyle(
-                  color: AppThemeColors.textPrimary,
-                  fontWeight: FontWeight.bold,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
+        title: Text(
+          _getAppBarTitle(),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          StreamBuilder<int>(
+            stream: _alertService.getUnreadCount(),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              return IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AlertsScreen(),
+                    ),
+                  );
+                },
+                icon: Badge(
+                  label: Text('$count'),
+                  isLabelVisible: count > 0,
+                  child: const Icon(
+                    Icons.notifications_none,
+                    color: AppThemeColors.textPrimary,
+                    size: 28,
+                  ),
                 ),
-              ),
-              actions: [
-                StreamBuilder<int>(
-                  stream: _alertService.getUnreadCount(),
-                  builder: (context, snapshot) {
-                    final count = snapshot.data ?? 0;
-                    return IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AlertsScreen(),
-                          ),
-                        );
-                      },
-                      icon: Badge(
-                        label: Text('$count'),
-                        isLabelVisible: count > 0,
-                        child: const Icon(
-                          Icons.notifications_none,
-                          color: AppThemeColors.textPrimary,
-                          size: 28,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,

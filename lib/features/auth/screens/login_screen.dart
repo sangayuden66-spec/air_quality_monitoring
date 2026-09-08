@@ -3,8 +3,6 @@ import '../../../core/theme/app_theme.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
 
-enum _LoginRole { user, it, admin }
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,7 +18,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   String? _errorMessage;
-  _LoginRole _selectedRole = _LoginRole.user;
 
   @override
   void dispose() {
@@ -131,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -163,52 +160,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 48),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppThemeColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppThemeColors.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Sign in as',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppThemeColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SegmentedButton<_LoginRole>(
-                          segments: const [
-                            ButtonSegment<_LoginRole>(
-                              value: _LoginRole.user,
-                              label: Text('General User'),
-                              icon: Icon(Icons.person_outline),
-                            ),
-                            ButtonSegment<_LoginRole>(
-                              value: _LoginRole.it,
-                              label: Text('IT'),
-                              icon: Icon(Icons.computer_outlined),
-                            ),
-                            ButtonSegment<_LoginRole>(
-                              value: _LoginRole.admin,
-                              label: Text('Administrator'),
-                              icon: Icon(Icons.admin_panel_settings_outlined),
-                            ),
-                          ],
-                          selected: <_LoginRole>{_selectedRole},
-                          onSelectionChanged: (selection) {
-                            setState(() {
-                              _selectedRole = selection.first;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 20),
                   if (_errorMessage != null) ...[
                     Container(

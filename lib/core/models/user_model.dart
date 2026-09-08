@@ -8,6 +8,7 @@ class UserModel {
   final int defaultAqiThreshold;
   final String role; // user | admin
   final String status; // active | disabled
+  final String themeMode; // light | dark
   final DateTime? createdAt;
   final DateTime? lastActiveAt;
   final DateTime? updatedAt;
@@ -20,6 +21,7 @@ class UserModel {
     this.defaultAqiThreshold = 100,
     this.role = 'user',
     this.status = 'active',
+    this.themeMode = 'light',
     this.createdAt,
     this.lastActiveAt,
     this.updatedAt,
@@ -34,6 +36,7 @@ class UserModel {
       'defaultAqiThreshold': defaultAqiThreshold,
       'role': role,
       'status': status,
+      'themeMode': themeMode,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
@@ -47,12 +50,16 @@ class UserModel {
   factory UserModel.fromMap(Map<String, dynamic> map) {
     final rawRole = map['role'];
     final rawStatus = map['status'];
+    final rawThemeMode = map['themeMode'];
     final role = rawRole is String && rawRole.trim().isNotEmpty
         ? rawRole.trim().toLowerCase()
         : 'user';
     final status = rawStatus is String && rawStatus.trim().isNotEmpty
         ? rawStatus.trim().toLowerCase()
         : 'active';
+    final themeMode = rawThemeMode is String && rawThemeMode.trim().isNotEmpty
+        ? rawThemeMode.trim().toLowerCase()
+        : 'light';
 
     return UserModel(
       uid: map['uid'] ?? '',
@@ -62,6 +69,7 @@ class UserModel {
       defaultAqiThreshold: map['defaultAqiThreshold'] ?? 100,
       role: role,
       status: status,
+      themeMode: themeMode == 'dark' ? 'dark' : 'light',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
       lastActiveAt: (map['lastActiveAt'] as Timestamp?)?.toDate(),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),

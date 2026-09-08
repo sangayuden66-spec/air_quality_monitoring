@@ -106,8 +106,8 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Location'),
-        backgroundColor: AppThemeColors.surface,
-        foregroundColor: AppThemeColors.textPrimary,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
       ),
       body: Stack(
@@ -217,7 +217,7 @@ class _MapScreenState extends State<MapScreen> {
                           icon: const Icon(Icons.my_location),
                           label: const Text('Current'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppThemeColors.surface,
+                            backgroundColor: Theme.of(context).colorScheme.surface,
                             foregroundColor: AppThemeColors.primary,
                           ),
                         ),
