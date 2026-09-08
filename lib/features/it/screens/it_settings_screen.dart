@@ -69,20 +69,6 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
     }
   }
 
-  void _showComingSoon(String feature) {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('$feature isn\'t available yet.')),
-        );
-    });
-  }
-
   void _showSnackBarMessage(String message) {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -332,24 +318,6 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
                                 subtitle: 'Update your password',
                                 onTap: _showChangePasswordDialog,
                               ),
-                              _SettingsRow(
-                                icon: Icons.mail_outline,
-                                title: 'Email Address',
-                                subtitle: user?.email ?? '—',
-                                onTap: () =>
-                                    _showComingSoon('Editing your email'),
-                              ),
-                              _SettingsRow(
-                                icon: Icons.phone_iphone_outlined,
-                                title: 'Two-Factor Auth',
-                                subtitle: 'Enabled via authenticator app',
-                                badge: 'Coming soon',
-                                badgeColor: AppThemeColors.textSecondary,
-                                badgeBackground: const Color(0xFFEEF0F4),
-                                onTap: () => _showComingSoon(
-                                  'Two-factor authentication',
-                                ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 20),
@@ -410,18 +378,6 @@ class _ItSettingsScreenState extends State<ItSettingsScreen> {
                                 onChanged:
                                     _isUpdatingTheme ? null : _toggleThemeMode,
                                 dimmed: false,
-                              ),
-                              _ToggleRow(
-                                icon: Icons.desktop_windows_outlined,
-                                iconColor: AppThemeColors.textSecondary,
-                                iconBackground: const Color(0xFFEEF0F4),
-                                title: 'Compact View',
-                                subtitle: 'Denser data tables and lists',
-                                value: prefs.compactView,
-                                onChanged: (v) => _updatePrefs(
-                                  prefs,
-                                  (p) => p.copyWith(compactView: v),
-                                ),
                               ),
                             ],
                           ),
@@ -628,9 +584,6 @@ class _SettingsRow extends StatelessWidget {
   final Color? iconBackground;
   final String title;
   final String subtitle;
-  final String? badge;
-  final Color? badgeColor;
-  final Color? badgeBackground;
   final VoidCallback onTap;
 
   const _SettingsRow({
@@ -639,9 +592,6 @@ class _SettingsRow extends StatelessWidget {
     this.iconBackground,
     required this.title,
     required this.subtitle,
-    this.badge,
-    this.badgeColor,
-    this.badgeBackground,
     required this.onTap,
   });
 
@@ -687,27 +637,6 @@ class _SettingsRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (badge != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: badgeBackground ?? const Color(0xFFE7F8EF),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  badge!,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: badgeColor ?? const Color(0xFF16A34A),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-            ],
             const Icon(
               Icons.chevron_right_rounded,
               color: AppThemeColors.textSecondary,

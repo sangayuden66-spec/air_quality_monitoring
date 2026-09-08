@@ -5,7 +5,11 @@ import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../auth/services/auth_service.dart';
 import 'contact_support_screen.dart';
+import 'help_center_screen.dart';
+import 'language_settings_screen.dart';
 import 'notification_preferences_screen.dart';
+import 'privacy_settings_screen.dart';
+import 'terms_and_privacy_screen.dart';
 
 class AlertSettingsScreen extends StatefulWidget {
   const AlertSettingsScreen({super.key});
@@ -245,14 +249,6 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                 onTap: () => _showEditProfileDialog(snapshot.data),
               ),
               _SettingsTile(
-                icon: Icons.location_on_outlined,
-                iconColor: const Color(0xFF1D9BF0),
-                iconBg: const Color(0xFFEAF3FF),
-                title: 'Location',
-                subtitle: 'Home',
-                onTap: () {},
-              ),
-              _SettingsTile(
                 icon: Icons.notifications_none_rounded,
                 iconColor: const Color(0xFF1D9BF0),
                 iconBg: const Color(0xFFEAF3FF),
@@ -289,7 +285,14 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                 iconBg: const Color(0xFFE8F7EE),
                 title: 'Privacy Settings',
                 subtitle: 'Control your data sharing',
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PrivacySettingsScreen(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.email_outlined,
@@ -325,7 +328,14 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                 iconBg: const Color(0xFFEAF1FF),
                 title: 'Language',
                 subtitle: 'English (US)',
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LanguageSettingsScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -339,7 +349,14 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                 iconBg: const Color(0xFFFFF1E8),
                 title: 'Help Center',
                 subtitle: 'Browse FAQs and guides',
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HelpCenterScreen(),
+                    ),
+                  );
+                },
               ),
               _SettingsTile(
                 icon: Icons.support_agent_outlined,
@@ -362,7 +379,14 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                 iconBg: const Color(0xFFFFF1E8),
                 title: 'Terms & Privacy',
                 subtitle: 'Read our policies',
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TermsAndPrivacyScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
