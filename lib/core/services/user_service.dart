@@ -54,6 +54,7 @@ class UserService {
           defaultAqiThreshold: 100,
           role: resolvedRole,
           status: 'active',
+          themeMode: 'light',
           createdAt: DateTime.now(),
           lastActiveAt: DateTime.now(),
         );
@@ -79,11 +80,15 @@ class UserService {
         if (loadedFromServer) {
           final role = data['role'];
           final status = data['status'];
+          final themeMode = data['themeMode'];
           if (role is! String || role.trim().isEmpty) {
             patch['role'] = 'user';
           }
           if (status is! String || status.trim().isEmpty) {
             patch['status'] = 'active';
+          }
+          if (themeMode is! String || themeMode.trim().isEmpty) {
+            patch['themeMode'] = 'light';
           }
         }
         await userDocRef.set(patch, SetOptions(merge: true));
@@ -146,6 +151,15 @@ class UserService {
     if (user == null) return;
     await _usersCollection.doc(user.uid).set({
       'lastActiveAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateThemeMode({required bool isDark}) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await _usersCollection.doc(user.uid).set({
+      'themeMode': isDark ? 'dark' : 'light',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

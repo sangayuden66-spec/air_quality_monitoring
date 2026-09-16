@@ -26,6 +26,26 @@ class AdminHomeService {
         });
   }
 
+  Future<void> updateUserRole({required String uid, required String role}) async {
+    final normalizedRole = role.trim().toLowerCase();
+    if (normalizedRole != 'user' &&
+        normalizedRole != 'it' &&
+        normalizedRole != 'admin') {
+      throw ArgumentError.value(role, 'role', 'Role must be user, it, or admin');
+    }
+    await _firestore.collection('users').doc(uid).set({
+      'role': normalizedRole,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setUserStatus({required String uid, required bool disabled}) async {
+    await _firestore.collection('users').doc(uid).set({
+      'status': disabled ? 'disabled' : 'active',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Stream<List<ReportItem>> watchReports() {
     return _firestore
         .collection('reports')

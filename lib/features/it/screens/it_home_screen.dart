@@ -22,7 +22,7 @@ class _ItHomeScreenState extends State<ItHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: StreamBuilder<ItDashboardSnapshot>(
           stream: _service.watchDashboard(),
@@ -96,7 +96,7 @@ class _Header extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppThemeColors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   shape: BoxShape.circle,
                   border: Border.all(color: AppThemeColors.border),
                 ),

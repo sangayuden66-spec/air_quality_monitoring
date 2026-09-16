@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/models/report_item.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/user_service.dart';
@@ -20,14 +22,17 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _selectedIndex == 0
-          ? const AdminHomeScreen()
+          ? AdminHomeScreen(
+        onViewAllUsers: () => setState(() => _selectedIndex = 1),
+        onViewAllReports: () => setState(() => _selectedIndex = 2),
+      )
           : _selectedIndex == 1
-          ? const AdminUsersScreen()
+          ? AdminUsersScreen(onBack: () => setState(() => _selectedIndex = 0))
           : _selectedIndex == 2
-          ? const AdminReportsScreen()
-          : const AdminSettingsScreen(),
+          ? AdminReportsScreen(onBack: () => setState(() => _selectedIndex = 0))
+          : AdminSettingsScreen(onBack: () => setState(() => _selectedIndex = 0)),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -64,7 +69,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
 }
 
 class AdminReportsScreen extends StatefulWidget {
-  const AdminReportsScreen({super.key});
+  const AdminReportsScreen({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   State<AdminReportsScreen> createState() => _AdminReportsScreenState();
@@ -158,7 +165,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () => Navigator.maybePop(context),
+                      onPressed:
+                      widget.onBack ?? () => Navigator.maybePop(context),
                       icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 20,
@@ -226,13 +234,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                     children: filteredReports
                         .map(
                           (report) => _ReportCard(
-                            report: report,
-                            onReview: (approved) =>
-                                _reviewReport(report, approved),
-                            onToggleVisibility: () => _toggleVisibility(report),
-                            disabled: _isUpdating,
-                          ),
-                        )
+                        report: report,
+                        onReview: (approved) =>
+                            _reviewReport(report, approved),
+                        onToggleVisibility: () => _toggleVisibility(report),
+                        disabled: _isUpdating,
+                      ),
+                    )
                         .toList(),
                   ),
                 ),
@@ -521,14 +529,18 @@ class _ReportCard extends StatelessWidget {
 }
 
 class AdminSettingsScreen extends StatefulWidget {
-  const AdminSettingsScreen({super.key});
+  const AdminSettingsScreen({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   State<AdminSettingsScreen> createState() => _AdminSettingsScreenState();
 }
 
 class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({super.key});
+  const AdminUsersScreen({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   State<AdminUsersScreen> createState() => _AdminUsersScreenState();
@@ -537,6 +549,7 @@ class AdminUsersScreen extends StatefulWidget {
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
   final AdminHomeService _service = AdminHomeService();
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _updatingUserIds = <String>{};
   String _query = '';
   UserModel? _selectedUser;
 
@@ -544,6 +557,158 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool _isCurrentUser(UserModel user) =>
+      FirebaseAuth.instance.currentUser?.uid == user.uid;
+
+  bool _isUpdatingUser(UserModel user) => _updatingUserIds.contains(user.uid);
+
+  String _roleDisplayName(String role) {
+    switch (role) {
+      case 'admin':
+        return 'Administrator';
+      case 'it':
+        return 'IT';
+      default:
+        return 'General User';
+    }
+  }
+
+  Future<void> _editRole(UserModel user) async {
+    if (_isCurrentUser(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot change your own role.')),
+      );
+      return;
+    }
+    if (_isUpdatingUser(user)) return;
+
+    final selectedRole = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) {
+        final currentRole = user.role.toLowerCase();
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Edit role for ${user.displayName?.trim().isNotEmpty == true ? user.displayName!.trim() : user.email}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...['user', 'it', 'admin'].map((role) {
+                  final isSelected = currentRole == role;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      isSelected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      color: isSelected
+                          ? AppThemeColors.primary
+                          : AppThemeColors.textSecondary,
+                    ),
+                    title: Text(_roleDisplayName(role)),
+                    onTap: () => Navigator.pop(context, role),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || selectedRole == null) return;
+    if (selectedRole == user.role.toLowerCase()) return;
+
+    setState(() => _updatingUserIds.add(user.uid));
+    try {
+      await _service.updateUserRole(uid: user.uid, role: selectedRole);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Role updated to ${_roleDisplayName(selectedRole)} for ${user.email}.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update role: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingUserIds.remove(user.uid));
+      }
+    }
+  }
+
+  Future<void> _toggleUserStatus(UserModel user) async {
+    if (_isCurrentUser(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot disable your own account.')),
+      );
+      return;
+    }
+    if (_isUpdatingUser(user)) return;
+
+    final shouldDisable = user.status != 'disabled';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(shouldDisable ? 'Disable account?' : 'Enable account?'),
+        content: Text(
+          shouldDisable
+              ? 'This user will be signed out and blocked from signing in until re-enabled.'
+              : 'This user will be able to sign in again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(shouldDisable ? 'Disable' : 'Enable'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    setState(() => _updatingUserIds.add(user.uid));
+    try {
+      await _service.setUserStatus(uid: user.uid, disabled: shouldDisable);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            shouldDisable
+                ? 'User account disabled.'
+                : 'User account enabled.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update account status: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingUserIds.remove(user.uid));
+      }
+    }
   }
 
   @override
@@ -558,16 +723,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         final users = snapshot.data ?? const <UserModel>[];
         final filteredUsers = _filterUsers(users, _query);
         final selectedUser = filteredUsers.isNotEmpty
-            ? (filteredUsers.contains(_selectedUser)
-                  ? _selectedUser
-                  : filteredUsers.first)
-            : users.isNotEmpty
-            ? users.first
+            ? filteredUsers.firstWhere(
+              (u) => u.uid == _selectedUser?.uid,
+          orElse: () => filteredUsers.first,
+        )
             : null;
-
-        if (_selectedUser == null && selectedUser != null) {
-          _selectedUser = selectedUser;
-        }
+        _selectedUser = selectedUser;
 
         final totalUsers = users.length;
         final activeUsers = users.where((u) => u.status == 'active').length;
@@ -581,7 +742,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () => Navigator.maybePop(context),
+                      onPressed:
+                      widget.onBack ?? () => Navigator.maybePop(context),
                       icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 20,
@@ -642,7 +804,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                                     setState(() => _query = value.trim()),
                                 decoration: const InputDecoration(
                                   hintText:
-                                      'Search users by name, email, or role...',
+                                  'Search users by name, email, or role...',
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
                                   focusedBorder: InputBorder.none,
@@ -705,12 +867,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           children: filteredUsers
                               .map(
                                 (user) => _UserCard(
-                                  user: user,
-                                  isSelected: _selectedUser == user,
-                                  onTap: () =>
-                                      setState(() => _selectedUser = user),
-                                ),
-                              )
+                              user: user,
+                              isSelected: _selectedUser?.uid == user.uid,
+                              isBusy: _isUpdatingUser(user),
+                              canModify: !_isCurrentUser(user),
+                              onTap: () =>
+                                  setState(() => _selectedUser = user),
+                              onEditRole: () => _editRole(user),
+                              onToggleStatus: () => _toggleUserStatus(user),
+                            ),
+                          )
                               .toList(),
                         );
                       }
@@ -724,19 +890,37 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                               children: filteredUsers
                                   .map(
                                     (user) => _UserCard(
-                                      user: user,
-                                      isSelected: _selectedUser == user,
-                                      onTap: () =>
-                                          setState(() => _selectedUser = user),
-                                    ),
-                                  )
+                                  user: user,
+                                  isSelected: _selectedUser?.uid == user.uid,
+                                  isBusy: _isUpdatingUser(user),
+                                  canModify: !_isCurrentUser(user),
+                                  onTap: () =>
+                                      setState(() => _selectedUser = user),
+                                  onEditRole: () => _editRole(user),
+                                  onToggleStatus: () => _toggleUserStatus(user),
+                                ),
+                              )
                                   .toList(),
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
                             flex: 6,
-                            child: _UserDetailCard(user: selectedUser),
+                            child: _UserDetailCard(
+                              user: selectedUser,
+                              isBusy: selectedUser != null
+                                  ? _isUpdatingUser(selectedUser)
+                                  : false,
+                              canModify: selectedUser != null
+                                  ? !_isCurrentUser(selectedUser)
+                                  : false,
+                              onEditRole: selectedUser != null
+                                  ? () => _editRole(selectedUser)
+                                  : null,
+                              onToggleStatus: selectedUser != null
+                                  ? () => _toggleUserStatus(selectedUser)
+                                  : null,
+                            ),
                           ),
                         ],
                       );
@@ -797,27 +981,36 @@ class _UsersStatTile extends StatelessWidget {
 class _UserCard extends StatelessWidget {
   final UserModel user;
   final bool isSelected;
+  final bool isBusy;
+  final bool canModify;
   final VoidCallback onTap;
+  final VoidCallback onEditRole;
+  final VoidCallback onToggleStatus;
 
   const _UserCard({
     required this.user,
     required this.isSelected,
+    required this.isBusy,
+    required this.canModify,
     required this.onTap,
+    required this.onEditRole,
+    required this.onToggleStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final name = user.displayName?.trim().isNotEmpty == true
         ? user.displayName!.trim()
         : user.email.split('@').first;
     final initials = name.isEmpty
         ? '?'
         : name
-              .split(RegExp(r'\s+'))
-              .take(2)
-              .map((v) => v[0])
-              .join()
-              .toUpperCase();
+        .split(RegExp(r'\s+'))
+        .take(2)
+        .map((v) => v[0])
+        .join()
+        .toUpperCase();
     final statusLabel = user.status == 'disabled' ? 'disabled' : 'active';
     final roleLabel = user.role.toLowerCase();
     final isAdmin = roleLabel == 'admin';
@@ -829,12 +1022,14 @@ class _UserCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF7F9FF) : AppThemeColors.surface,
+          color: isSelected
+              ? (isDark ? const Color(0xFF111111) : const Color(0xFFF7F9FF))
+              : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? AppThemeColors.primary
-                : const Color(0xFFE1E7F0),
+                : (isDark ? const Color(0xFF262626) : const Color(0xFFE1E7F0)),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -948,7 +1143,7 @@ class _UserCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: isBusy || !canModify ? null : onEditRole,
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Edit Role'),
                     style: OutlinedButton.styleFrom(
@@ -963,7 +1158,7 @@ class _UserCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: isBusy || !canModify ? null : onToggleStatus,
                     icon: Icon(
                       user.status == 'disabled'
                           ? Icons.check_circle_outline
@@ -1004,8 +1199,18 @@ class _UserCard extends StatelessWidget {
 
 class _UserDetailCard extends StatelessWidget {
   final UserModel? user;
+  final bool isBusy;
+  final bool canModify;
+  final VoidCallback? onEditRole;
+  final VoidCallback? onToggleStatus;
 
-  const _UserDetailCard({required this.user});
+  const _UserDetailCard({
+    required this.user,
+    required this.isBusy,
+    required this.canModify,
+    required this.onEditRole,
+    required this.onToggleStatus,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1014,14 +1219,14 @@ class _UserDetailCard extends StatelessWidget {
     }
 
     final initials =
-        (user!.displayName?.trim().isNotEmpty == true
-                ? user!.displayName!
-                : user!.email)
-            .split(RegExp(r'\s+'))
-            .map((part) => part[0])
-            .take(2)
-            .join()
-            .toUpperCase();
+    (user!.displayName?.trim().isNotEmpty == true
+        ? user!.displayName!
+        : user!.email)
+        .split(RegExp(r'\s+'))
+        .map((part) => part[0])
+        .take(2)
+        .join()
+        .toUpperCase();
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1134,12 +1339,21 @@ class _UserDetailCard extends StatelessWidget {
             value: user!.notificationsEnabled ? 'Enabled' : 'Disabled',
           ),
           const Spacer(),
+          if (!canModify)
+            const Text(
+              'You cannot change your own role or account status.',
+              style: TextStyle(
+                color: AppThemeColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          if (!canModify) const SizedBox(height: 8),
           const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: isBusy || !canModify ? null : onEditRole,
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Edit Role'),
                   style: OutlinedButton.styleFrom(
@@ -1155,7 +1369,7 @@ class _UserDetailCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: isBusy || !canModify ? null : onToggleStatus,
                   icon: Icon(
                     user!.status == 'disabled'
                         ? Icons.check_circle_outline
@@ -1231,6 +1445,214 @@ class _InfoRow extends StatelessWidget {
 class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   final UserService _userService = UserService();
   final AuthService _authService = AuthService();
+  bool _isUpdatingProfile = false;
+  bool _isUpdatingPassword = false;
+  bool _isUpdatingTheme = false;
+
+  void _showSnackBarMessage(String message) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    });
+  }
+
+  Future<void> _showEditProfileDialog(UserModel? user) async {
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to load your profile right now.')),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController(
+      text: user.displayName?.trim().isNotEmpty == true
+          ? user.displayName!.trim()
+          : '',
+    );
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: TextField(
+          controller: nameController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Display name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (shouldSave != true) return;
+    final newName = nameController.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Display name cannot be empty.')),
+      );
+      return;
+    }
+
+    setState(() => _isUpdatingProfile = true);
+    try {
+      await _userService.updateDisplayName(newName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingProfile = false);
+      }
+    }
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    String? validationError;
+
+    final shouldChange = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Change Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: currentPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Current password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'New password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm new password',
+                ),
+              ),
+              if (validationError != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  validationError!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final currentPassword = currentPasswordController.text.trim();
+                final newPassword = newPasswordController.text.trim();
+                final confirmPassword = confirmPasswordController.text.trim();
+
+                if (currentPassword.isEmpty ||
+                    newPassword.isEmpty ||
+                    confirmPassword.isEmpty) {
+                  setDialogState(
+                        () => validationError = 'Please fill in all password fields.',
+                  );
+                  return;
+                }
+                if (newPassword.length < 6) {
+                  setDialogState(
+                        () => validationError =
+                    'New password must be at least 6 characters.',
+                  );
+                  return;
+                }
+                if (newPassword != confirmPassword) {
+                  setDialogState(
+                        () => validationError = 'New password and confirmation do not match.',
+                  );
+                  return;
+                }
+
+                Navigator.pop(context, true);
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (shouldChange != true) return;
+
+    setState(() => _isUpdatingPassword = true);
+    try {
+      await _authService.changePassword(
+        currentPassword: currentPasswordController.text.trim(),
+        newPassword: newPasswordController.text.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password changed successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final errorText = error.toString().toLowerCase();
+      final message = errorText.contains('wrong-password') ||
+          errorText.contains('invalid-credential')
+          ? 'Current password is incorrect.'
+          : 'Failed to change password: $error';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingPassword = false);
+      }
+    }
+  }
+
+  Future<void> _toggleDarkMode(bool enableDarkMode) async {
+    if (_isUpdatingTheme) return;
+    setState(() => _isUpdatingTheme = true);
+    try {
+      await _userService.updateThemeMode(isDark: enableDarkMode);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBarMessage('Failed to update dark mode: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingTheme = false);
+      }
+    }
+  }
 
   Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
@@ -1261,7 +1683,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: StreamBuilder<UserModel?>(
           stream: _userService.getUserData(),
@@ -1274,13 +1696,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             final initials = name.trim().isEmpty
                 ? 'JD'
                 : name
-                      .trim()
-                      .split(RegExp(r'\s+'))
-                      .where((segment) => segment.isNotEmpty)
-                      .take(2)
-                      .map((segment) => segment[0])
-                      .join()
-                      .toUpperCase();
+                .trim()
+                .split(RegExp(r'\s+'))
+                .where((segment) => segment.isNotEmpty)
+                .take(2)
+                .map((segment) => segment[0])
+                .join()
+                .toUpperCase();
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -1289,7 +1711,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () => Navigator.maybePop(context),
+                      onPressed:
+                      widget.onBack ?? () => Navigator.maybePop(context),
                       icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 20,
@@ -1382,26 +1805,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       iconBackground: const Color(0xFFEAF3FF),
                       title: 'Edit Profile',
                       subtitle: 'Update your personal information',
-                      onTap: () => _showComingSoon('Profile editing'),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.location_on_outlined,
-                      iconColor: const Color(0xFF00A383),
-                      iconBackground: const Color(0xFFEAFBF4),
-                      title: 'Location',
-                      subtitle: 'New York, USA',
-                      onTap: () => _showComingSoon('Location settings'),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.notifications_none_rounded,
-                      iconColor: const Color(0xFF2D7EF7),
-                      iconBackground: const Color(0xFFEAF3FF),
-                      title: 'Notifications',
-                      subtitle: 'Manage alert preferences',
-                      badge: '3 new',
-                      badgeColor: Colors.white,
-                      badgeBackground: const Color(0xFFEF4444),
-                      onTap: () => _showComingSoon('Notifications'),
+                      onTap: _isUpdatingProfile
+                          ? null
+                          : () => _showEditProfileDialog(user),
                     ),
                   ],
                 ),
@@ -1416,7 +1822,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       iconBackground: const Color(0xFFE8F7EE),
                       title: 'Change Password',
                       subtitle: 'Update your password',
-                      onTap: () => _showComingSoon('Password change'),
+                      onTap: _isUpdatingPassword
+                          ? null
+                          : _showChangePasswordDialog,
                     ),
                     _SettingsRow(
                       icon: Icons.privacy_tip_outlined,
@@ -1446,8 +1854,15 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       iconColor: const Color(0xFFAD63D6),
                       iconBackground: const Color(0xFFF6ECFF),
                       title: 'Dark Mode',
-                      subtitle: 'Coming soon',
-                      onTap: () => _showComingSoon('Dark mode'),
+                      subtitle: (user?.themeMode ?? 'light') == 'dark'
+                          ? 'Enabled'
+                          : 'Disabled',
+                      showChevron: false,
+                      trailing: CupertinoSwitch(
+                        value: (user?.themeMode ?? 'light') == 'dark',
+                        onChanged: _isUpdatingTheme ? null : _toggleDarkMode,
+                      ),
+                      onTap: null,
                     ),
                     _SettingsRow(
                       icon: Icons.language_outlined,
@@ -1456,29 +1871,6 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       title: 'Language',
                       subtitle: 'English (US)',
                       onTap: () => _showComingSoon('Language settings'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const _SectionLabel('SUPPORT'),
-                const SizedBox(height: 8),
-                _SettingsGroup(
-                  children: [
-                    _SettingsRow(
-                      icon: Icons.support_agent_outlined,
-                      iconColor: const Color(0xFFE67E22),
-                      iconBackground: const Color(0xFFFFF1E8),
-                      title: 'Contact Support',
-                      subtitle: 'Get help from our team',
-                      onTap: () => _showComingSoon('Support'),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.description_outlined,
-                      iconColor: const Color(0xFFE67E22),
-                      iconBackground: const Color(0xFFFFF1E8),
-                      title: 'Terms & Privacy',
-                      subtitle: 'Read our policies',
-                      onTap: () => _showComingSoon('Terms & Privacy'),
                     ),
                   ],
                 ),
@@ -1523,9 +1915,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$feature is coming soon.')));
+    _showSnackBarMessage('$feature is coming soon.');
   }
 }
 
@@ -1557,11 +1947,7 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppThemeStyles.cardDecoration(),
-      child: Column(
-        children: [
-          for (int i = 0; i < children.length; i++) ...[children[i]],
-        ],
-      ),
+      child: Column(children: children),
     );
   }
 }
@@ -1572,10 +1958,9 @@ class _SettingsRow extends StatelessWidget {
   final Color iconBackground;
   final String title;
   final String subtitle;
-  final String? badge;
-  final Color? badgeColor;
-  final Color? badgeBackground;
-  final VoidCallback onTap;
+  final Widget? trailing;
+  final bool showChevron;
+  final VoidCallback? onTap;
 
   const _SettingsRow({
     required this.icon,
@@ -1583,79 +1968,60 @@ class _SettingsRow extends StatelessWidget {
     required this.iconBackground,
     required this.title,
     required this.subtitle,
-    this.badge,
-    this.badgeColor,
-    this.badgeBackground,
+    this.trailing,
+    this.showChevron = true,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppThemeColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (badge != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: badgeBackground ?? const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Text(
-                  badge!,
-                  style: TextStyle(
-                    color: badgeColor ?? AppThemeColors.primary,
-                    fontSize: 10,
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppThemeColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing case final Widget trailingWidget) trailingWidget,
+          if (trailing != null && showChevron) const SizedBox(width: 6),
+          if (showChevron)
             const Icon(
               Icons.chevron_right_rounded,
               color: AppThemeColors.textSecondary,
             ),
-          ],
-        ),
+        ],
       ),
     );
+
+    if (onTap == null) return content;
+    return InkWell(onTap: onTap, child: content);
   }
 }

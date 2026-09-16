@@ -79,7 +79,7 @@ class _NotificationPreferencesScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppThemeColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Alert Preferences'),
         actions: [
@@ -108,30 +108,6 @@ class _NotificationPreferencesScreenState
                   ),
                   value: _enabled,
                   onChanged: (val) => setState(() => _enabled = val),
-                ),
-                const Divider(),
-                ListTile(
-                  title: const Text('AQI Threshold'),
-                  subtitle: Text(
-                    'Notify me when AQI index is at least ${_threshold.toInt()}',
-                  ),
-                  trailing: Text(
-                    _getAqiLabel(_threshold.toInt()),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Slider(
-                  value: _threshold,
-                  min: 1,
-                  max: 5,
-                  divisions: 4,
-                  label: _getAqiLabel(_threshold.round()),
-                  onChanged: _enabled
-                      ? (val) => setState(() => _threshold = val)
-                      : null,
                 ),
                 const Divider(),
                 ListTile(
@@ -178,22 +154,5 @@ class _NotificationPreferencesScreenState
               ],
             ),
     );
-  }
-
-  String _getAqiLabel(int value) {
-    switch (value) {
-      case 1:
-        return '1 Good';
-      case 2:
-        return '2 Fair';
-      case 3:
-        return '3 Moderate';
-      case 4:
-        return '4 Poor';
-      case 5:
-        return '5 Very Poor';
-      default:
-        return '$value';
-    }
   }
 }

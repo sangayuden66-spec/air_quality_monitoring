@@ -6,7 +6,14 @@ import '../../../core/theme/app_theme.dart';
 import '../services/admin_home_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
-  const AdminHomeScreen({super.key});
+  const AdminHomeScreen({
+    super.key,
+    this.onViewAllReports,
+    this.onViewAllUsers,
+  });
+
+  final VoidCallback? onViewAllReports;
+  final VoidCallback? onViewAllUsers;
 
   @override
   State<AdminHomeScreen> createState() => _AdminHomeScreenState();
@@ -94,7 +101,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               final filteredRecentUsers = _filterRecentUsers(users, _query);
 
               return Container(
-                color: AppThemeColors.background,
+                color: Theme.of(context).scaffoldBackgroundColor,
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
                   children: [
@@ -200,7 +207,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     const SizedBox(height: 18),
                     _SectionCard(
                       title: 'Pending Reports',
-                      viewAll: true,
+                      onViewAll: widget.onViewAllReports,
                       child: filteredPending.isEmpty
                           ? const Text('No pending reports found.')
                           : Column(
@@ -219,7 +226,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             ),
                     ),
                     const SizedBox(height: 12),
-                    _RecentUsersCard(users: filteredRecentUsers.take(4).toList()),
+                    _RecentUsersCard(
+                      users: filteredRecentUsers.take(4).toList(),
+                      onViewAll: widget.onViewAllUsers,
+                    ),
                   ],
                 ),
               );
@@ -360,12 +370,12 @@ class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
     required this.child,
-    this.viewAll = false,
+    this.onViewAll,
   });
 
   final String title;
   final Widget child;
-  final bool viewAll;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -385,13 +395,16 @@ class _SectionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (viewAll)
-                const Text(
-                  'View All',
-                  style: TextStyle(
-                    color: AppThemeColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              if (onViewAll != null)
+                GestureDetector(
+                  onTap: onViewAll,
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(
+                      color: AppThemeColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
             ],
@@ -420,8 +433,8 @@ class _PendingReportTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppThemeColors.surface,
-          border: Border.all(color: AppThemeColors.border),
+          color: Theme.of(context).colorScheme.surface,
+          border: Border.all(color: Theme.of(context).dividerColor),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -502,9 +515,10 @@ class _PendingReportTile extends StatelessWidget {
 }
 
 class _RecentUsersCard extends StatelessWidget {
-  const _RecentUsersCard({required this.users});
+  const _RecentUsersCard({required this.users, this.onViewAll});
 
   final List<UserModel> users;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
@@ -524,14 +538,18 @@ class _RecentUsersCard extends StatelessWidget {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
               ),
-              const Text(
-                'View All',
-                style: TextStyle(
-                  color: AppThemeColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              if (onViewAll != null)
+                GestureDetector(
+                  onTap: onViewAll,
+                  child: const Text(
+                    'View All',
+                    style: TextStyle(
+                      color: AppThemeColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -622,4 +640,3 @@ class _RecentUsersCard extends StatelessWidget {
     );
   }
 }
-
