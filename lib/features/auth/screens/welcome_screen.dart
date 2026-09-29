@@ -18,10 +18,10 @@ class WelcomeScreen extends StatelessWidget {
               const Spacer(),
               Image.asset(
                 'logo.png',
-                width: 180,
-                height: 180,
+                width: 400,
+                height: 250, // Reduced height to minimize vertical padding from wide logo
+                fit: BoxFit.contain,
               ),
-              const SizedBox(height: 20),
               const Text(
                 'Welcome to AirSense',
                 textAlign: TextAlign.center,
@@ -50,13 +50,7 @@ class WelcomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text(
-                    'Log In',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  child: const Text('Login'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -69,15 +63,10 @@ class WelcomeScreen extends StatelessWidget {
                       MaterialPageRoute(builder: (_) => const SignupScreen()),
                     );
                   },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text(
-                    'Sign Up',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  child: const Text('Create Account'),
                 ),
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

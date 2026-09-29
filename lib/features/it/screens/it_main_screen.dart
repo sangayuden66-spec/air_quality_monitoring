@@ -20,7 +20,11 @@ class _ItMainScreenState extends State<ItMainScreen> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      ItHomeScreen(onViewAllTickets: () => _onItemTapped(1)),
+      ItHomeScreen(
+        onViewAllTickets: () => _onItemTapped(1),
+        onOpenSystem: () => _onItemTapped(2),
+        onOpenSettings: () => _onItemTapped(3),
+      ),
       ItSupportScreen(
         onBack: () => _onItemTapped(0),
         isActive: _selectedIndex == 1,

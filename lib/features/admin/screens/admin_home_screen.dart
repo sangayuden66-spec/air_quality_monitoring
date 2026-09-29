@@ -24,6 +24,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
+  // Brand Palette: Blue, Black, Green
+  static const Color kDeepBlue = Color(0xFF001A3F); // From logo
+  static const Color kCyanBlue = Color(0xFF00B2FF); // From logo
+  static const Color kLogoGreen = Color(0xFF00E676); // From logo
+  static const Color kPureBlack = Color(0xFF000000);
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -32,284 +38,224 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: StreamBuilder<List<UserModel>>(
-        stream: _service.watchUsers(),
-        builder: (context, usersSnapshot) {
-          return StreamBuilder<List<ReportItem>>(
-            stream: _service.watchReports(),
-            builder: (context, reportsSnapshot) {
-              if (usersSnapshot.connectionState == ConnectionState.waiting ||
-                  reportsSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: StreamBuilder<List<UserModel>>(
+          stream: _service.watchUsers(),
+          builder: (context, usersSnapshot) {
+            return StreamBuilder<List<ReportItem>>(
+              stream: _service.watchReports(),
+              builder: (context, reportsSnapshot) {
+                if (usersSnapshot.connectionState == ConnectionState.waiting ||
+                    reportsSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: kCyanBlue));
+                }
 
-              final usersError = usersSnapshot.error?.toString();
-              final reportsError = reportsSnapshot.error?.toString();
-              if (usersError != null || reportsError != null) {
-                final errorMessage =
-                    usersError ?? reportsError ?? 'Unknown error';
-                final isPermissionError = errorMessage.toLowerCase().contains(
-                  'permission-denied',
-                );
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isPermissionError
-                              ? Icons.lock_outline
-                              : Icons.error_outline,
-                          size: 40,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          isPermissionError
-                              ? 'You do not have permission to view admin data.'
-                              : 'Failed to load admin data: $errorMessage',
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
+                final users = usersSnapshot.data ?? const <UserModel>[];
+                final reports = reportsSnapshot.data ?? const <ReportItem>[];
 
-              final users = usersSnapshot.data ?? const <UserModel>[];
-              final reports = reportsSnapshot.data ?? const <ReportItem>[];
+                final visibleReports = reports
+                    .where((r) => r.visibility != 'hidden')
+                    .toList(growable: false);
+                final pendingReports = reports
+                    .where((r) => r.moderationStatus == 'pending')
+                    .toList(growable: false);
 
-              if (users.isEmpty && reports.isEmpty) {
-                return const Center(child: Text('No admin data found yet.'));
-              }
+                final filteredPending = _filterPendingReports(pendingReports, users, _query);
+                final filteredRecentUsers = _filterRecentUsers(users, _query);
 
-              final visibleReports = reports
-                  .where((r) => r.visibility != 'hidden')
-                  .toList(growable: false);
-              final pendingReports = reports
-                  .where((r) => r.moderationStatus == 'pending')
-                  .toList(growable: false);
-
-              final filteredPending = _filterPendingReports(
-                pendingReports,
-                users,
-                _query,
-              );
-              final filteredRecentUsers = _filterRecentUsers(users, _query);
-
-              return Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            'Admin Access',
-                            style: TextStyle(
-                              color: Color(0xFF1D4ED8),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: () {},
-                          icon: const Icon(Icons.notifications_none_rounded),
-                          color: AppThemeColors.textPrimary,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
+                    _Header(),
+                    const SizedBox(height: 16),
+                    _SearchBar(
                       controller: _searchController,
-                      onChanged: (value) =>
-                          setState(() => _query = value.trim()),
-                      decoration: InputDecoration(
-                        hintText: 'Search users, reports, locations...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: const Color(0xFFF4F5F7),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        suffixIcon: _query.isEmpty
-                            ? null
-                            : IconButton(
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _query = '');
-                                },
-                                icon: const Icon(Icons.clear),
-                              ),
-                      ),
+                      onChanged: (v) => setState(() => _query = v),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Total Users',
-                            value: users.length.toString(),
-                            icon: Icons.people_alt_outlined,
-                            trend: '+12.5%',
-                            trendColor: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Active Reports',
-                            value: visibleReports.length.toString(),
-                            icon: Icons.chat_bubble_outline,
-                            trend: '+8.2%',
-                            trendColor: Colors.black,
-                          ),
-                        ),
-                      ],
+                    _StatsGrid(
+                      totalUsers: users.length,
+                      activeReports: visibleReports.length,
+                      pendingReviews: pendingReports.length,
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Pending Reviews',
-                            value: pendingReports.length.toString(),
-                            icon: Icons.warning_amber_rounded,
-                            trend: '-5.1%',
-                            trendColor: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SectionCard(
-                      title: 'Pending Reports',
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      title: 'Pending Moderation',
                       onViewAll: widget.onViewAllReports,
-                      child: filteredPending.isEmpty
-                          ? const Text('No pending reports found.')
-                          : Column(
-                              children: filteredPending
-                                  .take(3)
-                                  .map(
-                                    (report) => _PendingReportTile(
-                                      report: report,
-                                      reporterName: _reporterName(
-                                        report,
-                                        users,
-                                      ),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                            ),
                     ),
                     const SizedBox(height: 12),
-                    _RecentUsersCard(
-                      users: filteredRecentUsers.take(4).toList(),
+                    if (filteredPending.isEmpty)
+                      const _EmptyState(text: 'All reports have been reviewed.')
+                    else
+                      ...filteredPending.take(3).map((report) => _ReportPreviewTile(
+                            report: report,
+                            reporterName: _reporterName(report, users),
+                          )),
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      title: 'User Management',
                       onViewAll: widget.onViewAllUsers,
                     ),
+                    const SizedBox(height: 12),
+                    _RecentUsersSection(users: filteredRecentUsers.take(4).toList()),
                   ],
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
 
-  List<ReportItem> _filterPendingReports(
-    List<ReportItem> reports,
-    List<UserModel> users,
-    String query,
-  ) {
+  List<ReportItem> _filterPendingReports(List<ReportItem> reports, List<UserModel> users, String query) {
     if (query.isEmpty) return reports;
     final q = query.toLowerCase();
-    final usersById = {for (final user in users) user.uid: user};
-    return reports
-        .where((report) {
-          final user = usersById[report.userId];
-          final userName = _displayNameOrEmail(user).toLowerCase();
-          return report.location.toLowerCase().contains(q) ||
-              report.text.toLowerCase().contains(q) ||
-              report.severity.toLowerCase().contains(q) ||
-              report.status.toLowerCase().contains(q) ||
-              userName.contains(q);
-        })
-        .toList(growable: false);
+    return reports.where((r) => r.location.toLowerCase().contains(q) || r.text.toLowerCase().contains(q)).toList();
   }
 
   List<UserModel> _filterRecentUsers(List<UserModel> users, String query) {
     if (query.isEmpty) return users;
     final q = query.toLowerCase();
-    return users
-        .where((user) {
-          final display = _displayNameOrEmail(user).toLowerCase();
-          return display.contains(q) || user.email.toLowerCase().contains(q);
-        })
-        .toList(growable: false);
-  }
-
-  String _displayNameOrEmail(UserModel? user) {
-    if (user == null) return 'Unknown user';
-    final displayName = user.displayName?.trim();
-    if (displayName != null && displayName.isNotEmpty) {
-      return displayName;
-    }
-    return user.email;
+    return users.where((u) => (u.displayName ?? '').toLowerCase().contains(q) || u.email.toLowerCase().contains(q)).toList();
   }
 
   String _reporterName(ReportItem report, List<UserModel> users) {
-    final fromReport = report.user.trim();
-    if (fromReport.isNotEmpty &&
-        fromReport.toLowerCase() != 'unknown' &&
-        fromReport != report.userId) {
-      return fromReport;
-    }
     final user = users.cast<UserModel?>().firstWhere(
-      (entry) => entry?.uid == report.userId,
-      orElse: () => null,
+      (u) => u?.uid == report.userId, 
+      orElse: () => null
     );
-    return _displayNameOrEmail(user);
+    if (user == null) return 'Unknown';
+    return (user.displayName?.isNotEmpty == true) ? user.displayName! : user.email;
+  }
+}
+
+class _Header extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Color(0xFF001A3F), // Deep Navy from Logo
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Color(0xFF00B2FF).withOpacity(0.3)),
+          ),
+          child: const Text(
+            'Admin Portal',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+        ),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppThemeColors.border),
+          ),
+          child: const Center(
+            child: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF001A3F)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _SearchBar({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        decoration: const InputDecoration(
+          icon: Icon(Icons.search, color: Color(0xFF001A3F)),
+          hintText: 'Search database, users, reports...',
+          hintStyle: TextStyle(color: AppThemeColors.textSecondary),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatsGrid extends StatelessWidget {
+  final int totalUsers;
+  final int activeReports;
+  final int pendingReviews;
+
+  const _StatsGrid({
+    required this.totalUsers,
+    required this.activeReports,
+    required this.pendingReviews,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.35,
+      children: [
+        _StatCard(
+          icon: Icons.group_rounded,
+          iconColor: Color(0xFF00B2FF), // Cyan Blue
+          iconBackground: Color(0xFF00B2FF).withOpacity(0.1),
+          label: 'Total Users',
+          value: totalUsers.toString(),
+        ),
+        _StatCard(
+          icon: Icons.fact_check_rounded,
+          iconColor: Color(0xFF00E676), // Logo Green
+          iconBackground: Color(0xFF00E676).withOpacity(0.1),
+          label: 'Live Reports',
+          value: activeReports.toString(),
+        ),
+        _StatCard(
+          icon: Icons.rule_rounded,
+          iconColor: Color(0xFFEA580C),
+          iconBackground: Color(0xFFFFF1E6),
+          label: 'In Review',
+          value: pendingReviews.toString(),
+        ),
+      ],
+    );
   }
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.trend,
-    required this.trendColor,
-  });
-
-  final String title;
-  final String value;
   final IconData icon;
-  final String trend;
-  final Color trendColor;
+  final Color iconColor;
+  final Color iconBackground;
+  final String label;
+  final String value;
+
+  const _StatCard({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackground,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -319,46 +265,30 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE7EAF6),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: AppThemeColors.textPrimary, size: 20),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  trend,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
-          const SizedBox(height: 10),
+          const Spacer(),
           Text(
-            title,
+            label,
             style: const TextStyle(
               fontSize: 12,
               color: AppThemeColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppThemeColors.textPrimary,
+            ),
           ),
         ],
       ),
@@ -366,163 +296,47 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.onViewAll,
-  });
-
+class _SectionHeader extends StatelessWidget {
   final String title;
-  final Widget child;
   final VoidCallback? onViewAll;
+
+  const _SectionHeader({required this.title, this.onViewAll});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        if (onViewAll != null)
+          GestureDetector(
+            onTap: onViewAll,
+            child: const Text(
+              'View All',
+              style: TextStyle(
+                color: Color(0xFF00B2FF),
+                fontWeight: FontWeight.w600,
               ),
-              if (onViewAll != null)
-                GestureDetector(
-                  onTap: onViewAll,
-                  child: const Text(
-                    'View All',
-                    style: TextStyle(
-                      color: AppThemeColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _PendingReportTile extends StatelessWidget {
-  const _PendingReportTile({required this.report, required this.reporterName});
-
+class _ReportPreviewTile extends StatelessWidget {
   final ReportItem report;
   final String reporterName;
 
-  @override
-  Widget build(BuildContext context) {
-    final timestamp = DateFormat('MMM d, h:mm a').format(report.createdAt.toLocal());
-    final isPending = report.moderationStatus == 'pending';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border.all(color: Theme.of(context).dividerColor),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    reporterName,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isPending
-                        ? const Color(0xFFF3F4F6)
-                        : const Color(0xFFE6F9EE),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    isPending ? 'pending' : 'approved',
-                    style: TextStyle(
-                      color: isPending
-                          ? const Color(0xFF6B7280)
-                          : const Color(0xFF16A34A),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 12,
-                  color: AppThemeColors.textSecondary,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    report.location,
-                    style: const TextStyle(
-                      color: AppThemeColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              report.text,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppThemeColors.textPrimary,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              timestamp,
-              style: const TextStyle(
-                color: AppThemeColors.textSecondary,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RecentUsersCard extends StatelessWidget {
-  const _RecentUsersCard({required this.users, this.onViewAll});
-
-  final List<UserModel> users;
-  final VoidCallback? onViewAll;
+  const _ReportPreviewTile({required this.report, required this.reporterName});
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: AppThemeStyles.cardDecoration(),
       child: Column(
@@ -530,113 +344,119 @@ class _RecentUsersCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.people_alt_outlined, size: 18),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Recent Users',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
+              Text(
+                reporterName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
-              if (onViewAll != null)
-                GestureDetector(
-                  onTap: onViewAll,
-                  child: const Text(
-                    'View All',
-                    style: TextStyle(
-                      color: AppThemeColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              const Spacer(),
+              _Badge(text: report.moderationStatus, color: Color(0xFF00B2FF)),
             ],
           ),
-          const SizedBox(height: 10),
-          if (users.isEmpty)
-            const Text('No users found.')
-          else ...[
-            const Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Name',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Email',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    'Join',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ...users.map((user) {
-              final displayName = user.displayName?.trim().isNotEmpty == true
-                  ? user.displayName!.trim()
-                  : user.email.split('@').first;
-              final joinedText = user.createdAt != null
-                  ? '${DateTime.now().difference(user.createdAt!).inHours}h ago'
-                  : '—';
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: const Color(0xFFDBEAFE),
-                      child: Text(
-                        (displayName.isEmpty ? user.email : displayName)
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFF1F3C88),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        displayName,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        user.email,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppThemeColors.textSecondary),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 60,
-                      child: Text(
-                        joinedText,
-                        style: const TextStyle(
-                          color: AppThemeColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 12, color: AppThemeColors.textSecondary),
+              const SizedBox(width: 4),
+              Text(
+                report.location,
+                style: const TextStyle(color: AppThemeColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(report.text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 8),
+          Text(
+            DateFormat('h:mm a').format(report.createdAt),
+            style: const TextStyle(fontSize: 11, color: AppThemeColors.textSecondary),
+          ),
         ],
       ),
     );
+  }
+}
+
+class _RecentUsersSection extends StatelessWidget {
+  final List<UserModel> users;
+
+  const _RecentUsersSection({required this.users});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: AppThemeStyles.cardDecoration(),
+      child: Column(
+        children: users.map((user) {
+          final name = user.displayName?.trim().isNotEmpty == true 
+              ? user.displayName!.trim() 
+              : user.email.split('@').first;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xFF001A3F),
+                  child: Text(
+                    name[0].toUpperCase(),
+                    style: const TextStyle(color: Color(0xFF00B2FF), fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(user.email, style: const TextStyle(fontSize: 11, color: AppThemeColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                _Badge(text: user.role, color: user.role == 'admin' ? Color(0xFF00B2FF) : Colors.grey),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _Badge({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final String text;
+  const _EmptyState({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Text(text, style: const TextStyle(color: AppThemeColors.textSecondary)),
+    ));
   }
 }

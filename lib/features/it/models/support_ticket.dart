@@ -7,6 +7,7 @@ enum TicketStatus { open, inProgress, resolved }
 
 class SupportTicket {
   final String id;
+  final String userId;
   final String requesterName;
   final String requesterEmail;
   final String subject;
@@ -15,9 +16,18 @@ class SupportTicket {
   final TicketPriority priority;
   final TicketStatus status;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? assignedTo;
+  final String? assignedToName;
+  final String? itResponse;
+  final String? resolution;
+  final String? resolvedBy;
+  final DateTime? resolvedAt;
+  final bool requiresAdminAttention;
 
   const SupportTicket({
     required this.id,
+    required this.userId,
     required this.requesterName,
     required this.requesterEmail,
     required this.subject,
@@ -26,6 +36,14 @@ class SupportTicket {
     required this.priority,
     required this.status,
     required this.createdAt,
+    required this.updatedAt,
+    this.assignedTo,
+    this.assignedToName,
+    this.itResponse,
+    this.resolution,
+    this.resolvedBy,
+    this.resolvedAt,
+    this.requiresAdminAttention = false,
   });
 
   factory SupportTicket.fromFirestore(
@@ -34,15 +52,31 @@ class SupportTicket {
     final data = doc.data();
     return SupportTicket(
       id: doc.id,
-      requesterName: (data['requesterName'] as String?) ?? 'Unknown',
+      userId: (data['userId'] as String?) ?? '',
+      requesterName: (data['requesterName'] as String?) ?? (data['userName'] as String?) ?? 'Unknown',
       requesterEmail: (data['requesterEmail'] as String?) ?? '',
       subject: (data['subject'] as String?) ?? 'No subject',
-      category: (data['category'] as String?) ?? 'General',
+      category: (data['category'] as String?) ?? 'Uncategorised',
       description: (data['description'] as String?) ?? '',
       priority: _parsePriority(data['priority']),
       status: _parseStatus(data['status']),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      assignedTo: _readOptionalString(data['assignedTo']),
+      assignedToName: _readOptionalString(data['assignedToName']),
+      itResponse: _readOptionalString(data['itResponse']) ?? _readOptionalString(data['staffComment']),
+      resolution: _readOptionalString(data['resolution']),
+      resolvedBy: _readOptionalString(data['resolvedBy']),
+      resolvedAt: (data['resolvedAt'] as Timestamp?)?.toDate(),
+      requiresAdminAttention: (data['requiresAdminAttention'] as bool?) ?? false,
     );
+  }
+
+  static String? _readOptionalString(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+    return null;
   }
 
   static TicketPriority _parsePriority(dynamic value) {
@@ -60,6 +94,7 @@ class SupportTicket {
     switch (value?.toString().toLowerCase()) {
       case 'in-progress':
       case 'inprogress':
+      case 'in_progress':
         return TicketStatus.inProgress;
       case 'resolved':
         return TicketStatus.resolved;

@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import '../../../core/models/report_item.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/user_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../alerts/screens/privacy_settings_screen.dart';
 import '../../auth/services/auth_service.dart';
 import '../services/admin_home_service.dart';
 import 'admin_home_screen.dart';
+
+// Theme Palette for Reports (Blue, Black, Green - matching Logo & Admin Home)
+const Color kDeepNavy = Color(0xFF001A3F);
+const Color kCyan = Color(0xFF00B2FF);
+const Color kEmerald = Color(0xFF00E676);
+const Color kBgGray = Color(0xFFF1F3F6);
 
 class AdminMainScreen extends StatefulWidget {
   const AdminMainScreen({super.key});
@@ -25,14 +33,14 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _selectedIndex == 0
           ? AdminHomeScreen(
-        onViewAllUsers: () => setState(() => _selectedIndex = 1),
-        onViewAllReports: () => setState(() => _selectedIndex = 2),
-      )
+              onViewAllUsers: () => setState(() => _selectedIndex = 1),
+              onViewAllReports: () => setState(() => _selectedIndex = 2),
+            )
           : _selectedIndex == 1
-          ? AdminUsersScreen(onBack: () => setState(() => _selectedIndex = 0))
-          : _selectedIndex == 2
-          ? AdminReportsScreen(onBack: () => setState(() => _selectedIndex = 0))
-          : AdminSettingsScreen(onBack: () => setState(() => _selectedIndex = 0)),
+              ? AdminUsersScreen(onBack: () => setState(() => _selectedIndex = 0))
+              : _selectedIndex == 2
+                  ? AdminReportsScreen(onBack: () => setState(() => _selectedIndex = 0))
+                  : AdminSettingsScreen(onBack: () => setState(() => _selectedIndex = 0)),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -94,17 +102,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            shouldBeVisible
-                ? 'Report is now visible to users.'
-                : 'Report has been hidden.',
-          ),
+          content: Text(shouldBeVisible ? 'Report made visible.' : 'Report hidden.'),
+          backgroundColor: kDeepNavy,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update report: $error')),
+        SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isUpdating = false);
@@ -122,17 +128,15 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            approved
-                ? 'Report approved and visible.'
-                : 'Report rejected and hidden.',
-          ),
+          content: Text(approved ? 'Report Approved.' : 'Report Rejected.'),
+          backgroundColor: approved ? kEmerald : Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to review report: $error')),
+        SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isUpdating = false);
@@ -145,12 +149,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       stream: _service.watchReports(),
       builder: (context, snapshot) {
         final reports = snapshot.data ?? const <ReportItem>[];
-        final visibleReports = reports
-            .where((r) => r.visibility != 'hidden')
-            .toList();
-        final hiddenReports = reports
-            .where((r) => r.visibility == 'hidden')
-            .toList();
+        final visibleReports = reports.where((r) => r.visibility != 'hidden').toList();
+        final hiddenReports = reports.where((r) => r.visibility == 'hidden').toList();
         final filteredReports = switch (_filter) {
           'visible' => visibleReports,
           'hidden' => hiddenReports,
@@ -158,97 +158,77 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         };
 
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              children: [
-                Row(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
                   children: [
-                    IconButton(
-                      onPressed:
-                      widget.onBack ?? () => Navigator.maybePop(context),
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    _buildBackButton(),
+                    const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
                         'Manage Reports',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: kDeepNavy),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF1FF),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        'Admin Access',
-                        style: TextStyle(
-                          color: Color(0xFF3563E9),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
+                    _buildBadge('ADMIN', kCyan),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
                   children: [
-                    _ReportFilterChip(
-                      label: 'All',
-                      count: reports.length,
-                      selected: _filter == 'all',
-                      onTap: () => setState(() => _filter = 'all'),
-                    ),
+                    _ReportFilterChip(label: 'All', count: reports.length, selected: _filter == 'all', onTap: () => setState(() => _filter = 'all')),
                     const SizedBox(width: 8),
-                    _ReportFilterChip(
-                      label: 'Visible',
-                      count: visibleReports.length,
-                      selected: _filter == 'visible',
-                      onTap: () => setState(() => _filter = 'visible'),
-                    ),
+                    _ReportFilterChip(label: 'Visible', count: visibleReports.length, selected: _filter == 'visible', onTap: () => setState(() => _filter = 'visible')),
                     const SizedBox(width: 8),
-                    _ReportFilterChip(
-                      label: 'Hidden',
-                      count: hiddenReports.length,
-                      selected: _filter == 'hidden',
-                      onTap: () => setState(() => _filter = 'hidden'),
-                    ),
+                    _ReportFilterChip(label: 'Hidden', count: hiddenReports.length, selected: _filter == 'hidden', onTap: () => setState(() => _filter = 'hidden')),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView(
-                    children: filteredReports
-                        .map(
-                          (report) => _ReportCard(
-                        report: report,
-                        onReview: (approved) =>
-                            _reviewReport(report, approved),
-                        onToggleVisibility: () => _toggleVisibility(report),
-                        disabled: _isUpdating,
-                      ),
-                    )
-                        .toList(),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredReports.length,
+                  itemBuilder: (context, index) => _ReportCard(
+                    report: filteredReports[index],
+                    onReview: (approved) => _reviewReport(filteredReports[index], approved),
+                    onToggleVisibility: () => _toggleVisibility(filteredReports[index]),
+                    disabled: _isUpdating,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBackButton() {
+    return GestureDetector(
+      onTap: widget.onBack ?? () => Navigator.maybePop(context),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: kBgGray,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: kDeepNavy),
+      ),
+    );
+  }
+
+  Widget _buildBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
     );
   }
 }
@@ -259,30 +239,32 @@ class _ReportFilterChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _ReportFilterChip({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
+  const _ReportFilterChip({required this.label, required this.count, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF111827) : const Color(0xFFF3F5F8),
-          borderRadius: BorderRadius.circular(999),
+          color: selected ? kDeepNavy : kBgGray,
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(
-          '$label ($count)',
-          style: TextStyle(
-            color: selected ? Colors.white : AppThemeColors.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
+        child: Row(
+          children: [
+            Text(label, style: TextStyle(color: selected ? Colors.white : AppThemeColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 13)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: selected ? Colors.white.withOpacity(0.2) : kDeepNavy.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text('$count', style: TextStyle(color: selected ? Colors.white : kDeepNavy, fontSize: 11, fontWeight: FontWeight.w800)),
+            ),
+          ],
         ),
       ),
     );
@@ -295,234 +277,138 @@ class _ReportCard extends StatelessWidget {
   final Future<void> Function() onToggleVisibility;
   final bool disabled;
 
-  const _ReportCard({
-    required this.report,
-    required this.onReview,
-    required this.onToggleVisibility,
-    this.disabled = false,
-  });
+  const _ReportCard({required this.report, required this.onReview, required this.onToggleVisibility, this.disabled = false});
 
   @override
   Widget build(BuildContext context) {
     final isVisible = report.visibility != 'hidden';
-    final statusColor = isVisible
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFCA8A04);
-
+    final isApproved = report.moderationStatus == 'approved';
+    
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: AppThemeStyles.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: const Color(0xFFDDEBFF),
-                child: Text(
-                  report.initials.isNotEmpty ? report.initials : '?',
-                  style: const TextStyle(
-                    color: Color(0xFF1F3C88),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: kCyan.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.description_outlined, color: kCyan, size: 20),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          report.user,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6F8EE),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            isVisible ? 'Visible' : 'Hidden',
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 13,
-                          color: AppThemeColors.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          report.timeAgo,
-                          style: const TextStyle(
-                            color: AppThemeColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Text(report.user, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kDeepNavy)),
+                    Text(report.timeAgo, style: const TextStyle(fontSize: 12, color: AppThemeColors.textSecondary)),
                   ],
                 ),
               ),
+              _PillBadge(
+                text: isVisible ? 'VISIBLE' : 'HIDDEN',
+                color: isVisible ? kEmerald : Colors.orange,
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
+          Text(report.location, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kCyan)),
+          const SizedBox(height: 6),
+          Text(report.text, style: const TextStyle(fontSize: 14, color: AppThemeColors.textPrimary, height: 1.4)),
+          const SizedBox(height: 16),
           Row(
             children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: AppThemeColors.textSecondary,
-              ),
-              const SizedBox(width: 4),
+              _ActionMini(icon: Icons.check_circle_rounded, text: '${report.confirm}', color: kEmerald),
+              const SizedBox(width: 12),
+              _ActionMini(icon: Icons.cancel_rounded, text: '${report.deny}', color: Colors.red),
+              const Spacer(),
+              _PillBadge(text: report.moderationStatus.toUpperCase(), color: isApproved ? kEmerald : Colors.grey, filled: isApproved),
+            ],
+          ),
+          const Divider(height: 32),
+          Row(
+            children: [
               Expanded(
-                child: Text(
-                  report.location,
-                  style: const TextStyle(
-                    color: AppThemeColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF1FF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  report.severity.toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFF3563E9),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            report.text,
-            style: const TextStyle(
-              color: AppThemeColors.textPrimary,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(
-                Icons.check_circle,
-                size: 14,
-                color: Color(0xFF16A34A),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${report.confirm} confirmations',
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+                child: _ITButton(
+                  label: isApproved ? 'Reject' : 'Approve',
+                  icon: isApproved ? Icons.close_rounded : Icons.check_rounded,
+                  color: isApproved ? Colors.red : kEmerald,
+                  onPressed: () => onReview(!isApproved),
+                  disabled: disabled,
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                '${report.deny} denials',
-                style: const TextStyle(
-                  color: Color(0xFFB45309),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE6F8EE),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  report.moderationStatus,
-                  style: const TextStyle(
-                    color: Color(0xFF16A34A),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: disabled
-                      ? null
-                      : () => onReview(report.moderationStatus != 'approved'),
-                  icon: Icon(
-                    report.moderationStatus == 'approved'
-                        ? Icons.cancel_outlined
-                        : Icons.verified_outlined,
-                    size: 16,
-                  ),
-                  label: Text(
-                    report.moderationStatus == 'approved'
-                        ? 'Reject'
-                        : 'Approve',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppThemeColors.primary,
-                    side: const BorderSide(color: AppThemeColors.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: disabled ? null : onToggleVisibility,
-                  icon: const Icon(Icons.hide_source_outlined, size: 16),
-                  label: Text(isVisible ? 'Hide' : 'Show'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFE67E22),
-                    side: const BorderSide(color: Color(0xFFE67E22)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                child: _ITButton(
+                  label: isVisible ? 'Hide' : 'Show',
+                  icon: isVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: kDeepNavy,
+                  onPressed: onToggleVisibility,
+                  disabled: disabled,
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PillBadge extends StatelessWidget {
+  final String text;
+  final Color color;
+  final bool filled;
+  const _PillBadge({required this.text, required this.color, this.filled = false});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: filled ? color : color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      child: Text(text, style: TextStyle(color: filled ? Colors.white : color, fontSize: 10, fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _ActionMini extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final Color color;
+  const _ActionMini({required this.icon, required this.text, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 4),
+        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)),
+      ],
+    );
+  }
+}
+
+class _ITButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+  final bool disabled;
+  const _ITButton({required this.label, required this.icon, required this.color, required this.onPressed, this.disabled = false});
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: disabled ? null : onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withOpacity(0.3)),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: color.withOpacity(0.05),
       ),
     );
   }
@@ -535,6 +421,578 @@ class AdminSettingsScreen extends StatefulWidget {
 
   @override
   State<AdminSettingsScreen> createState() => _AdminSettingsScreenState();
+}
+
+class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
+  final UserService _userService = UserService();
+  final AuthService _authService = AuthService();
+  bool _isUpdatingProfile = false;
+  bool _isUpdatingPassword = false;
+  bool _isUpdatingTheme = false;
+
+  void _showSnackBarMessage(String message) {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    });
+  }
+
+  Future<void> _showEditProfileDialog(UserModel? user) async {
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to load your profile right now.')),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController(
+      text: user.displayName?.trim().isNotEmpty == true
+          ? user.displayName!.trim()
+          : '',
+    );
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: TextField(
+          controller: nameController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Display name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (shouldSave != true) return;
+    final newName = nameController.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Display name cannot be empty.')),
+      );
+      return;
+    }
+
+    setState(() => _isUpdatingProfile = true);
+    try {
+      await _userService.updateDisplayName(newName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingProfile = false);
+      }
+    }
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    String? validationError;
+
+    final shouldChange = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Change Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: currentPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Current password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'New password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm new password',
+                ),
+              ),
+              if (validationError != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  validationError!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final currentPassword = currentPasswordController.text.trim();
+                final newPassword = newPasswordController.text.trim();
+                final confirmPassword = confirmPasswordController.text.trim();
+
+                if (currentPassword.isEmpty ||
+                    newPassword.isEmpty ||
+                    confirmPassword.isEmpty) {
+                  setDialogState(
+                        () => validationError = 'Please fill in all password fields.',
+                  );
+                  return;
+                }
+                if (newPassword.length < 6) {
+                  setDialogState(
+                        () => validationError =
+                    'New password must be at least 6 characters.',
+                  );
+                  return;
+                }
+                if (newPassword != confirmPassword) {
+                  setDialogState(
+                        () => validationError = 'New password and confirmation do not match.',
+                  );
+                  return;
+                }
+
+                Navigator.pop(context, true);
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (shouldChange != true) return;
+
+    setState(() => _isUpdatingPassword = true);
+    try {
+      await _authService.changePassword(
+        currentPassword: currentPasswordController.text.trim(),
+        newPassword: newPasswordController.text.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password changed successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final errorText = error.toString().toLowerCase();
+      final message = errorText.contains('wrong-password') ||
+          errorText.contains('invalid-credential')
+          ? 'Current password is incorrect.'
+          : 'Failed to change password: $error';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingPassword = false);
+      }
+    }
+  }
+
+  Future<void> _toggleDarkMode(bool enableDarkMode) async {
+    if (_isUpdatingTheme) return;
+    setState(() => _isUpdatingTheme = true);
+    try {
+      await _userService.updateThemeMode(isDark: enableDarkMode);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBarMessage('Failed to update dark mode: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingTheme = false);
+      }
+    }
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text(
+          'You will need to sign in again to access the admin dashboard.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log Out', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _authService.signOut();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: StreamBuilder<UserModel?>(
+          stream: _userService.getUserData(),
+          builder: (context, snapshot) {
+            final user = snapshot.data;
+            final name = user?.displayName?.trim().isNotEmpty == true
+                ? user!.displayName!
+                : 'John Doe';
+            final email = user?.email ?? 'john.doe@example.com';
+            final initials = name.trim().isEmpty
+                ? 'JD'
+                : name
+                .trim()
+                .split(RegExp(r'\s+'))
+                .where((segment) => segment.isNotEmpty)
+                .take(2)
+                .map((segment) => segment[0])
+                .join()
+                .toUpperCase();
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              children: [
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed:
+                      widget.onBack ?? () => Navigator.maybePop(context),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Settings',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Manage your account',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppThemeColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF4C60F5), Color(0xFF8F46FF)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.all(Radius.circular(18)),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Colors.white.withValues(alpha: 0.22),
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Admin',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              email,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('ADMIN'),
+                const SizedBox(height: 8),
+                _SettingsGroup(
+                  children: [
+                    _SettingsRow(
+                      icon: Icons.person_outline,
+                      iconColor: const Color(0xFF1D9BF0),
+                      iconBackground: const Color(0xFFEAF3FF),
+                      title: 'Edit Profile',
+                      subtitle: 'Update your personal information',
+                      onTap: _isUpdatingProfile
+                          ? null
+                          : () => _showEditProfileDialog(user),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('SECURITY'),
+                const SizedBox(height: 8),
+                _SettingsGroup(
+                  children: [
+                    _SettingsRow(
+                      icon: Icons.lock_outline,
+                      iconColor: const Color(0xFF18A957),
+                      iconBackground: const Color(0xFFE8F7EE),
+                      title: 'Change Password',
+                      subtitle: 'Update your password',
+                      onTap: _isUpdatingPassword
+                          ? null
+                          : () => _showChangePasswordDialog(),
+                    ),
+                    _SettingsRow(
+                      icon: Icons.privacy_tip_outlined,
+                      iconColor: const Color(0xFF18A957),
+                      iconBackground: const Color(0xFFE8F7EE),
+                      title: 'Privacy Settings',
+                      subtitle: 'Control your data sharing',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PrivacySettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('GENERAL'),
+                const SizedBox(height: 8),
+                _SettingsGroup(
+                  children: [
+                    _SettingsRow(
+                      icon: Icons.dark_mode_outlined,
+                      iconColor: const Color(0xFFAD63D6),
+                      iconBackground: const Color(0xFFF6ECFF),
+                      title: 'Dark Mode',
+                      subtitle: (user?.themeMode ?? 'light') == 'dark'
+                          ? 'Enabled'
+                          : 'Disabled',
+                      showChevron: false,
+                      trailing: CupertinoSwitch(
+                        value: (user?.themeMode ?? 'light') == 'dark',
+                        onChanged: _isUpdatingTheme ? null : _toggleDarkMode,
+                      ),
+                      onTap: null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _confirmLogout,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDC2626),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.logout_rounded, size: 18),
+                    label: const Text(
+                      'Log Out',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Center(
+                  child: Text(
+                    'AirSense v1.0.0\n© 2026 All rights reserved',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppThemeColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.6,
+        color: AppThemeColors.textSecondary,
+      ),
+    );
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  final List<Widget> children;
+
+  const _SettingsGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: AppThemeStyles.cardDecoration(),
+      child: Column(children: children),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBackground;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final bool showChevron;
+  final VoidCallback? onTap;
+
+  const _SettingsRow({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackground,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.showChevron = true,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppThemeColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing case final Widget trailingWidget) trailingWidget,
+          if (trailing != null && showChevron) const SizedBox(width: 6),
+          if (showChevron)
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppThemeColors.textSecondary,
+            ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return content;
+    return InkWell(onTap: onTap, child: content);
+  }
 }
 
 class AdminUsersScreen extends StatefulWidget {
@@ -1439,589 +1897,5 @@ class _InfoRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
-  final UserService _userService = UserService();
-  final AuthService _authService = AuthService();
-  bool _isUpdatingProfile = false;
-  bool _isUpdatingPassword = false;
-  bool _isUpdatingTheme = false;
-
-  void _showSnackBarMessage(String message) {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
-    });
-  }
-
-  Future<void> _showEditProfileDialog(UserModel? user) async {
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to load your profile right now.')),
-      );
-      return;
-    }
-
-    final nameController = TextEditingController(
-      text: user.displayName?.trim().isNotEmpty == true
-          ? user.displayName!.trim()
-          : '',
-    );
-
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: TextField(
-          controller: nameController,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Display name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted) return;
-    if (shouldSave != true) return;
-    final newName = nameController.text.trim();
-    if (newName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Display name cannot be empty.')),
-      );
-      return;
-    }
-
-    setState(() => _isUpdatingProfile = true);
-    try {
-      await _userService.updateDisplayName(newName);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update profile: $error')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingProfile = false);
-      }
-    }
-  }
-
-  Future<void> _showChangePasswordDialog() async {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    String? validationError;
-
-    final shouldChange = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Change Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: currentPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Current password'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: newPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'New password'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm new password',
-                ),
-              ),
-              if (validationError != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  validationError!,
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                final currentPassword = currentPasswordController.text.trim();
-                final newPassword = newPasswordController.text.trim();
-                final confirmPassword = confirmPasswordController.text.trim();
-
-                if (currentPassword.isEmpty ||
-                    newPassword.isEmpty ||
-                    confirmPassword.isEmpty) {
-                  setDialogState(
-                        () => validationError = 'Please fill in all password fields.',
-                  );
-                  return;
-                }
-                if (newPassword.length < 6) {
-                  setDialogState(
-                        () => validationError =
-                    'New password must be at least 6 characters.',
-                  );
-                  return;
-                }
-                if (newPassword != confirmPassword) {
-                  setDialogState(
-                        () => validationError = 'New password and confirmation do not match.',
-                  );
-                  return;
-                }
-
-                Navigator.pop(context, true);
-              },
-              child: const Text('Update'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (shouldChange != true) return;
-
-    setState(() => _isUpdatingPassword = true);
-    try {
-      await _authService.changePassword(
-        currentPassword: currentPasswordController.text.trim(),
-        newPassword: newPasswordController.text.trim(),
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password changed successfully.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      final errorText = error.toString().toLowerCase();
-      final message = errorText.contains('wrong-password') ||
-          errorText.contains('invalid-credential')
-          ? 'Current password is incorrect.'
-          : 'Failed to change password: $error';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingPassword = false);
-      }
-    }
-  }
-
-  Future<void> _toggleDarkMode(bool enableDarkMode) async {
-    if (_isUpdatingTheme) return;
-    setState(() => _isUpdatingTheme = true);
-    try {
-      await _userService.updateThemeMode(isDark: enableDarkMode);
-    } catch (error) {
-      if (!mounted) return;
-      _showSnackBarMessage('Failed to update dark mode: $error');
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingTheme = false);
-      }
-    }
-  }
-
-  Future<void> _confirmLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log out?'),
-        content: const Text(
-          'You will need to sign in again to access the admin dashboard.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Log Out', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _authService.signOut();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: StreamBuilder<UserModel?>(
-          stream: _userService.getUserData(),
-          builder: (context, snapshot) {
-            final user = snapshot.data;
-            final name = user?.displayName?.trim().isNotEmpty == true
-                ? user!.displayName!
-                : 'John Doe';
-            final email = user?.email ?? 'john.doe@example.com';
-            final initials = name.trim().isEmpty
-                ? 'JD'
-                : name
-                .trim()
-                .split(RegExp(r'\s+'))
-                .where((segment) => segment.isNotEmpty)
-                .take(2)
-                .map((segment) => segment[0])
-                .join()
-                .toUpperCase();
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-              children: [
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed:
-                      widget.onBack ?? () => Navigator.maybePop(context),
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Settings',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            'Manage your account',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppThemeColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF4C60F5), Color(0xFF8F46FF)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.all(Radius.circular(18)),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Colors.white.withValues(alpha: 0.22),
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Admin',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              email,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const _SectionLabel('ADMIN'),
-                const SizedBox(height: 8),
-                _SettingsGroup(
-                  children: [
-                    _SettingsRow(
-                      icon: Icons.person_outline,
-                      iconColor: const Color(0xFF1D9BF0),
-                      iconBackground: const Color(0xFFEAF3FF),
-                      title: 'Edit Profile',
-                      subtitle: 'Update your personal information',
-                      onTap: _isUpdatingProfile
-                          ? null
-                          : () => _showEditProfileDialog(user),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const _SectionLabel('SECURITY'),
-                const SizedBox(height: 8),
-                _SettingsGroup(
-                  children: [
-                    _SettingsRow(
-                      icon: Icons.lock_outline,
-                      iconColor: const Color(0xFF18A957),
-                      iconBackground: const Color(0xFFE8F7EE),
-                      title: 'Change Password',
-                      subtitle: 'Update your password',
-                      onTap: _isUpdatingPassword
-                          ? null
-                          : _showChangePasswordDialog,
-                    ),
-                    _SettingsRow(
-                      icon: Icons.privacy_tip_outlined,
-                      iconColor: const Color(0xFF18A957),
-                      iconBackground: const Color(0xFFE8F7EE),
-                      title: 'Privacy Settings',
-                      subtitle: 'Control your data sharing',
-                      onTap: () => _showComingSoon('Privacy settings'),
-                    ),
-                    _SettingsRow(
-                      icon: Icons.email_outlined,
-                      iconColor: const Color(0xFF18A957),
-                      iconBackground: const Color(0xFFE8F7EE),
-                      title: 'Email Preferences',
-                      subtitle: 'Manage email notifications',
-                      onTap: () => _showComingSoon('Email preferences'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                const _SectionLabel('GENERAL'),
-                const SizedBox(height: 8),
-                _SettingsGroup(
-                  children: [
-                    _SettingsRow(
-                      icon: Icons.dark_mode_outlined,
-                      iconColor: const Color(0xFFAD63D6),
-                      iconBackground: const Color(0xFFF6ECFF),
-                      title: 'Dark Mode',
-                      subtitle: (user?.themeMode ?? 'light') == 'dark'
-                          ? 'Enabled'
-                          : 'Disabled',
-                      showChevron: false,
-                      trailing: CupertinoSwitch(
-                        value: (user?.themeMode ?? 'light') == 'dark',
-                        onChanged: _isUpdatingTheme ? null : _toggleDarkMode,
-                      ),
-                      onTap: null,
-                    ),
-                    _SettingsRow(
-                      icon: Icons.language_outlined,
-                      iconColor: const Color(0xFF5A6BFF),
-                      iconBackground: const Color(0xFFEAF1FF),
-                      title: 'Language',
-                      subtitle: 'English (US)',
-                      onTap: () => _showComingSoon('Language settings'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 22),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _confirmLogout,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDC2626),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: const Text(
-                      'Log Out',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Center(
-                  child: Text(
-                    'AirSense v1.0.0\n© 2026 All rights reserved',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppThemeColors.textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showComingSoon(String feature) {
-    _showSnackBarMessage('$feature is coming soon.');
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.6,
-        color: AppThemeColors.textSecondary,
-      ),
-    );
-  }
-}
-
-class _SettingsGroup extends StatelessWidget {
-  final List<Widget> children;
-
-  const _SettingsGroup({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: AppThemeStyles.cardDecoration(),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _SettingsRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBackground;
-  final String title;
-  final String subtitle;
-  final Widget? trailing;
-  final bool showChevron;
-  final VoidCallback? onTap;
-
-  const _SettingsRow({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBackground,
-    required this.title,
-    required this.subtitle,
-    this.trailing,
-    this.showChevron = true,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: iconBackground,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppThemeColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (trailing case final Widget trailingWidget) trailingWidget,
-          if (trailing != null && showChevron) const SizedBox(width: 6),
-          if (showChevron)
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppThemeColors.textSecondary,
-            ),
-        ],
-      ),
-    );
-
-    if (onTap == null) return content;
-    return InkWell(onTap: onTap, child: content);
   }
 }

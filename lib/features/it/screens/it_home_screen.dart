@@ -9,8 +9,15 @@ import '../services/it_support_service.dart';
 
 class ItHomeScreen extends StatefulWidget {
   final VoidCallback? onViewAllTickets;
+  final VoidCallback? onOpenSystem;
+  final VoidCallback? onOpenSettings;
 
-  const ItHomeScreen({super.key, this.onViewAllTickets});
+  const ItHomeScreen({
+    super.key,
+    this.onViewAllTickets,
+    this.onOpenSystem,
+    this.onOpenSettings,
+  });
 
   @override
   State<ItHomeScreen> createState() => _ItHomeScreenState();
@@ -39,8 +46,6 @@ class _ItHomeScreenState extends State<ItHomeScreen> {
                 _SearchBar(),
                 const SizedBox(height: 16),
                 _StatsGrid(data: data),
-                const SizedBox(height: 20),
-                _QuickActions(),
                 const SizedBox(height: 20),
                 _SupportTicketsSection(
                   tickets: data.tickets,
@@ -309,80 +314,6 @@ class _Pill extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color:
               textColor ?? (filled ? Colors.white : AppThemeColors.textPrimary),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActions extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final actions = [
-      (Icons.settings_outlined, 'System Config'),
-      (Icons.storage_rounded, 'Database'),
-      (Icons.shield_outlined, 'Security'),
-      (Icons.build_outlined, 'Maintenance'),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: AppThemeStyles.cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Quick Actions',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.6,
-            children: actions
-                .map((a) => _QuickActionTile(icon: a.$1, label: a.$2))
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _QuickActionTile({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {},
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppThemeColors.border),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: AppThemeColors.textPrimary, size: 22),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppThemeColors.textPrimary,
-              ),
-            ),
-          ],
         ),
       ),
     );

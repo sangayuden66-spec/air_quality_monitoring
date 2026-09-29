@@ -9,6 +9,8 @@ class UserSupportTicket {
   final String status;
   final String priority;
   final DateTime createdAt;
+  final String? staffComment;
+  final DateTime? staffCommentUpdatedAt;
 
   const UserSupportTicket({
     required this.id,
@@ -18,6 +20,8 @@ class UserSupportTicket {
     required this.status,
     required this.priority,
     required this.createdAt,
+    this.staffComment,
+    this.staffCommentUpdatedAt,
   });
 
   factory UserSupportTicket.fromFirestore(
@@ -51,6 +55,8 @@ class UserSupportTicket {
         data['createdAt'],
         fallback: data['updatedAt'],
       ),
+      staffComment: _readNullableString(data['staffComment']),
+      staffCommentUpdatedAt: _readOptionalDateTime(data['staffCommentUpdatedAt']),
     );
   }
 
@@ -87,6 +93,23 @@ class UserSupportTicket {
 
     // Handles an unresolved Firestore server timestamp safely.
     return DateTime.now();
+  }
+
+  static DateTime? _readOptionalDateTime(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return null;
+  }
+
+  static String? _readNullableString(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+    return null;
   }
 }
 

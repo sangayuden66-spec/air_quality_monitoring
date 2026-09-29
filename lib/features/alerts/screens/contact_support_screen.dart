@@ -444,6 +444,48 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                                     color: AppThemeColors.textSecondary,
                                   ),
                                 ),
+                                if (ticket.staffComment != null) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'IT Update',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1D4ED8),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          ticket.staffComment!,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppThemeColors.textPrimary,
+                                          ),
+                                        ),
+                                        if (ticket.staffCommentUpdatedAt != null) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            'Updated ${_timeAgo(ticket.staffCommentUpdatedAt!)}',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppThemeColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 6),
                                 Text(
                                   _timeAgo(ticket.createdAt),

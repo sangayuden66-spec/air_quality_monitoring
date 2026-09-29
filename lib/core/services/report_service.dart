@@ -10,7 +10,7 @@ class ReportService {
   CollectionReference get _reportsCollection =>
       _firestore.collection('reports');
 
-  /// Fetches a stream of all reports
+  /// Fetches a stream of active/visible reports for regular users
   Stream<List<ReportItem>> getReportsStream() {
     return _reportsCollection
         .orderBy('createdAt', descending: true)
@@ -18,6 +18,10 @@ class ReportService {
         .map((snapshot) {
           return snapshot.docs
               .map((doc) => ReportItem.fromFirestore(doc))
+              .where((report) =>
+                  report.visibility == 'visible' &&
+                  report.status != 'hidden' &&
+                  report.moderationStatus != 'rejected')
               .toList();
         });
   }
@@ -93,25 +97,51 @@ class ReportService {
     }
   }
 
-  /// Confirms (upvotes) a report. Adds user to confirmedBy and removes from deniedBy.
-  Future<void> confirmReport(String reportId) async {
+  /// Confirms (upvotes) a report. Toggles if already confirmed.
+  Future<void> confirmReport(ReportItem report) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    await _reportsCollection.doc(reportId).update({
-      'confirmedBy': FieldValue.arrayUnion([user.uid]),
-      'deniedBy': FieldValue.arrayRemove([user.uid]),
-    });
+    final isConfirmed = report.confirmedBy.contains(user.uid);
+
+    try {
+      if (isConfirmed) {
+        await _reportsCollection.doc(report.id).update({
+          'confirmedBy': FieldValue.arrayRemove([user.uid]),
+        });
+      } else {
+        await _reportsCollection.doc(report.id).update({
+          'confirmedBy': FieldValue.arrayUnion([user.uid]),
+          'deniedBy': FieldValue.arrayRemove([user.uid]),
+        });
+      }
+    } catch (e) {
+      debugPrint('Error confirming report: $e');
+      rethrow;
+    }
   }
 
-  /// Denies (downvotes) a report. Adds user to deniedBy and removes from confirmedBy.
-  Future<void> denyReport(String reportId) async {
+  /// Denies (downvotes) a report. Toggles if already denied.
+  Future<void> denyReport(ReportItem report) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    await _reportsCollection.doc(reportId).update({
-      'deniedBy': FieldValue.arrayUnion([user.uid]),
-      'confirmedBy': FieldValue.arrayRemove([user.uid]),
-    });
+    final isDenied = report.deniedBy.contains(user.uid);
+
+    try {
+      if (isDenied) {
+        await _reportsCollection.doc(report.id).update({
+          'deniedBy': FieldValue.arrayRemove([user.uid]),
+        });
+      } else {
+        await _reportsCollection.doc(report.id).update({
+          'deniedBy': FieldValue.arrayUnion([user.uid]),
+          'confirmedBy': FieldValue.arrayRemove([user.uid]),
+        });
+      }
+    } catch (e) {
+      debugPrint('Error denying report: $e');
+      rethrow;
+    }
   }
 }
