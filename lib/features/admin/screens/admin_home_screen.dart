@@ -47,60 +47,73 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             return StreamBuilder<List<ReportItem>>(
               stream: _service.watchReports(),
               builder: (context, reportsSnapshot) {
-                if (usersSnapshot.connectionState == ConnectionState.waiting ||
-                    reportsSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: kCyanBlue));
-                }
+                return StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _service.watchAdminNotifications(),
+                  builder: (context, notifySnapshot) {
+                    if (usersSnapshot.connectionState == ConnectionState.waiting ||
+                        reportsSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: kCyanBlue));
+                    }
 
-                final users = usersSnapshot.data ?? const <UserModel>[];
-                final reports = reportsSnapshot.data ?? const <ReportItem>[];
+                    final users = usersSnapshot.data ?? const <UserModel>[];
+                    final reports = reportsSnapshot.data ?? const <ReportItem>[];
+                    final notifications = notifySnapshot.data ?? const [];
 
-                final visibleReports = reports
-                    .where((r) => r.visibility != 'hidden')
-                    .toList(growable: false);
-                final pendingReports = reports
-                    .where((r) => r.moderationStatus == 'pending')
-                    .toList(growable: false);
+                    final visibleReports = reports
+                        .where((r) => r.visibility != 'hidden')
+                        .toList(growable: false);
+                    final pendingReports = reports
+                        .where((r) => r.moderationStatus == 'pending')
+                        .toList(growable: false);
 
-                final filteredPending = _filterPendingReports(pendingReports, users, _query);
-                final filteredRecentUsers = _filterRecentUsers(users, _query);
+                    final filteredPending = _filterPendingReports(pendingReports, users, _query);
+                    final filteredRecentUsers = _filterRecentUsers(users, _query);
 
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  children: [
-                    _Header(),
-                    const SizedBox(height: 16),
-                    _SearchBar(
-                      controller: _searchController,
-                      onChanged: (v) => setState(() => _query = v),
-                    ),
-                    const SizedBox(height: 16),
-                    _StatsGrid(
-                      totalUsers: users.length,
-                      activeReports: visibleReports.length,
-                      pendingReviews: pendingReports.length,
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(
-                      title: 'Pending Moderation',
-                      onViewAll: widget.onViewAllReports,
-                    ),
-                    const SizedBox(height: 12),
-                    if (filteredPending.isEmpty)
-                      const _EmptyState(text: 'All reports have been reviewed.')
-                    else
-                      ...filteredPending.take(3).map((report) => _ReportPreviewTile(
-                            report: report,
-                            reporterName: _reporterName(report, users),
-                          )),
-                    const SizedBox(height: 24),
-                    _SectionHeader(
-                      title: 'User Management',
-                      onViewAll: widget.onViewAllUsers,
-                    ),
-                    const SizedBox(height: 12),
-                    _RecentUsersSection(users: filteredRecentUsers.take(4).toList()),
-                  ],
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                      children: [
+                        _Header(),
+                        const SizedBox(height: 16),
+                        if (notifications.isNotEmpty) ...[
+                          _EscalationSection(
+                            notifications: notifications,
+                            onMarkRead: (id) => _service.markNotificationAsRead(id),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        _SearchBar(
+                          controller: _searchController,
+                          onChanged: (v) => setState(() => _query = v),
+                        ),
+                        const SizedBox(height: 16),
+                        _StatsGrid(
+                          totalUsers: users.length,
+                          activeReports: visibleReports.length,
+                          pendingReviews: pendingReports.length,
+                        ),
+                        const SizedBox(height: 24),
+                        _SectionHeader(
+                          title: 'Pending Moderation',
+                          onViewAll: widget.onViewAllReports,
+                        ),
+                        const SizedBox(height: 12),
+                        if (filteredPending.isEmpty)
+                          const _EmptyState(text: 'All reports have been reviewed.')
+                        else
+                          ...filteredPending.take(3).map((report) => _ReportPreviewTile(
+                                report: report,
+                                reporterName: _reporterName(report, users),
+                              )),
+                        const SizedBox(height: 24),
+                        _SectionHeader(
+                          title: 'User Management',
+                          onViewAll: widget.onViewAllUsers,
+                        ),
+                        const SizedBox(height: 12),
+                        _RecentUsersSection(users: filteredRecentUsers.take(4).toList()),
+                      ],
+                    );
+                  },
                 );
               },
             );
@@ -141,9 +154,9 @@ class _Header extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Color(0xFF001A3F), // Deep Navy from Logo
+            color: const Color(0xFF001A3F), // Deep Navy from Logo
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Color(0xFF00B2FF).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFF00B2FF).withOpacity(0.3)),
           ),
           child: const Text(
             'Admin Portal',
@@ -162,6 +175,81 @@ class _Header extends StatelessWidget {
             child: Icon(Icons.admin_panel_settings_rounded, color: Color(0xFF001A3F)),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _EscalationSection extends StatelessWidget {
+  final List<Map<String, dynamic>> notifications;
+  final Function(String) onMarkRead;
+
+  const _EscalationSection({required this.notifications, required this.onMarkRead});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.priority_high_rounded, color: Colors.red, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Priority Escalations',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+              child: Text(
+                '${notifications.length}',
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...notifications.take(3).map((n) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.red.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      n['title'] ?? 'Escalation',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF001A3F)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      n['message'] ?? '',
+                      style: const TextStyle(fontSize: 12, color: AppThemeColors.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'By: ${n['createdByName'] ?? 'IT Staff'}',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF00B2FF)),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                onPressed: () => onMarkRead(n['id']),
+                tooltip: 'Mark as read',
+              ),
+            ],
+          ),
+        )),
       ],
     );
   }
@@ -218,22 +306,22 @@ class _StatsGrid extends StatelessWidget {
       children: [
         _StatCard(
           icon: Icons.group_rounded,
-          iconColor: Color(0xFF00B2FF), // Cyan Blue
-          iconBackground: Color(0xFF00B2FF).withOpacity(0.1),
+          iconColor: const Color(0xFF00B2FF), // Cyan Blue
+          iconBackground: const Color(0xFF00B2FF).withOpacity(0.1),
           label: 'Total Users',
           value: totalUsers.toString(),
         ),
         _StatCard(
           icon: Icons.fact_check_rounded,
-          iconColor: Color(0xFF00E676), // Logo Green
-          iconBackground: Color(0xFF00E676).withOpacity(0.1),
+          iconColor: const Color(0xFF00E676), // Logo Green
+          iconBackground: const Color(0xFF00E676).withOpacity(0.1),
           label: 'Live Reports',
           value: activeReports.toString(),
         ),
         _StatCard(
           icon: Icons.rule_rounded,
-          iconColor: Color(0xFFEA580C),
-          iconBackground: Color(0xFFFFF1E6),
+          iconColor: const Color(0xFFEA580C),
+          iconBackground: const Color(0xFFFFF1E6),
           label: 'In Review',
           value: pendingReviews.toString(),
         ),
@@ -349,7 +437,7 @@ class _ReportPreviewTile extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const Spacer(),
-              _Badge(text: report.moderationStatus, color: Color(0xFF00B2FF)),
+              _Badge(text: report.moderationStatus, color: const Color(0xFF00B2FF)),
             ],
           ),
           const SizedBox(height: 4),
@@ -413,7 +501,7 @@ class _RecentUsersSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                _Badge(text: user.role, color: user.role == 'admin' ? Color(0xFF00B2FF) : Colors.grey),
+                _Badge(text: user.role, color: user.role == 'admin' ? const Color(0xFF00B2FF) : Colors.grey),
               ],
             ),
           );

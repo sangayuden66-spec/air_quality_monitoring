@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/support_ticket.dart';
 
 class ItSupportService {
@@ -59,7 +60,7 @@ class ItSupportService {
     required String ticketId,
     required String itResponse,
     String? resolution,
-    bool markAsResolved = false,
+    required TicketStatus status,
     required bool requiresAdminAttention,
   }) async {
     final uid = _uid;
@@ -67,24 +68,53 @@ class ItSupportService {
       throw Exception('You must be signed in.');
     }
 
+    debugPrint('Updating ticket $ticketId: status=$status, adminAttention=$requiresAdminAttention');
+
+    final bool isResolving = status == TicketStatus.resolved;
+
     final update = <String, dynamic>{
       'itResponse': itResponse.trim(),
       'staffComment': itResponse.trim(), // Keep backward compatibility
-      'requiresAdminAttention': requiresAdminAttention,
+      'status': _statusValue(status),
+      'requiresAdminAttention': isResolving ? false : (status == TicketStatus.pendingAdmin ? true : requiresAdminAttention),
       'updatedAt': FieldValue.serverTimestamp(),
+      'assignedTo': uid, // Auto-assign on update
+      'assignedToName': _displayName ?? _auth.currentUser?.email?.split('@').first ?? 'IT Staff',
     };
 
-    if (markAsResolved) {
+    if (isResolving) {
       if (resolution == null || resolution.trim().isEmpty) {
         throw Exception('A resolution description is required to resolve this ticket.');
       }
-      update['status'] = 'resolved';
       update['resolution'] = resolution.trim();
       update['resolvedBy'] = uid;
       update['resolvedAt'] = FieldValue.serverTimestamp();
     }
 
-    await _firestore.collection('supportTickets').doc(ticketId).update(update);
+    // Use set with merge: true to ensure document structure
+    await _firestore.collection('supportTickets').doc(ticketId).set(
+      update,
+      SetOptions(merge: true),
+    );
+
+    // If escalated to admin, create a notification
+    if (!isResolving && (requiresAdminAttention || status == TicketStatus.pendingAdmin)) {
+      try {
+        await _firestore.collection('adminNotifications').add({
+          'type': 'ticket_escalation',
+          'ticketId': ticketId,
+          'title': 'IT Escalation Required',
+          'message': 'IT Staff has requested admin assistance for ticket #$ticketId.',
+          'status': 'unread',
+          'createdBy': uid,
+          'createdByName': _displayName ?? _auth.currentUser?.email?.split('@').first ?? 'IT Staff',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        debugPrint('Admin notification created for ticket $ticketId');
+      } catch (e) {
+        debugPrint('Failed to create admin notification: $e');
+      }
+    }
   }
 
   Future<void> updateTicket({
@@ -125,6 +155,8 @@ class ItSupportService {
         return 'in-progress';
       case TicketStatus.resolved:
         return 'resolved';
+      case TicketStatus.pendingAdmin:
+        return 'pending_admin';
     }
   }
 

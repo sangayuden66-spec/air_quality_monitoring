@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 enum TicketPriority { low, medium, high }
 
-enum TicketStatus { open, inProgress, resolved }
+enum TicketStatus { open, inProgress, resolved, pendingAdmin }
 
 class SupportTicket {
   final String id;
@@ -98,6 +98,9 @@ class SupportTicket {
         return TicketStatus.inProgress;
       case 'resolved':
         return TicketStatus.resolved;
+      case 'pending_admin':
+      case 'pendingadmin':
+        return TicketStatus.pendingAdmin;
       default:
         return TicketStatus.open;
     }
@@ -144,10 +147,12 @@ class SupportTicket {
         return 'in-progress';
       case TicketStatus.resolved:
         return 'resolved';
+      case TicketStatus.pendingAdmin:
+        return 'pending_admin';
     }
   }
 
-  bool get isFilledStatusBadge => status == TicketStatus.inProgress;
+  bool get isFilledStatusBadge => status == TicketStatus.inProgress || status == TicketStatus.pendingAdmin;
 
   String get statusDisplayLabel {
     switch (status) {
@@ -157,6 +162,8 @@ class SupportTicket {
         return 'In Progress';
       case TicketStatus.resolved:
         return 'Resolved';
+      case TicketStatus.pendingAdmin:
+        return 'Pending Admin';
     }
   }
 

@@ -10,6 +10,7 @@ class UserSupportTicket {
   final String priority;
   final DateTime createdAt;
   final String? staffComment;
+  final String? resolution;
   final DateTime? staffCommentUpdatedAt;
 
   const UserSupportTicket({
@@ -21,6 +22,7 @@ class UserSupportTicket {
     required this.priority,
     required this.createdAt,
     this.staffComment,
+    this.resolution,
     this.staffCommentUpdatedAt,
   });
 
@@ -55,8 +57,9 @@ class UserSupportTicket {
         data['createdAt'],
         fallback: data['updatedAt'],
       ),
-      staffComment: _readNullableString(data['staffComment']),
-      staffCommentUpdatedAt: _readOptionalDateTime(data['staffCommentUpdatedAt']),
+      staffComment: _readNullableString(data['staffComment']) ?? _readNullableString(data['itResponse']),
+      resolution: _readNullableString(data['resolution']),
+      staffCommentUpdatedAt: _readOptionalDateTime(data['staffCommentUpdatedAt']) ?? _readOptionalDateTime(data['updatedAt']),
     );
   }
 

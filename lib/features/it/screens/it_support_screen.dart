@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/support_ticket.dart';
 import '../services/it_support_service.dart';
 
-enum _StatusFilter { all, open, inProgress, resolved }
+enum _StatusFilter { all, open, inProgress, resolved, pendingAdmin }
 
 extension on _StatusFilter {
   String get label {
@@ -17,6 +16,8 @@ extension on _StatusFilter {
         return 'In Progress';
       case _StatusFilter.resolved:
         return 'Resolved';
+      case _StatusFilter.pendingAdmin:
+        return 'Pending Admin';
     }
   }
 
@@ -30,6 +31,8 @@ extension on _StatusFilter {
         return TicketStatus.inProgress;
       case _StatusFilter.resolved:
         return TicketStatus.resolved;
+      case _StatusFilter.pendingAdmin:
+        return TicketStatus.pendingAdmin;
     }
   }
 }
@@ -125,17 +128,10 @@ class ItSupportScreen extends StatefulWidget {
 
 class _ItSupportScreenState extends State<ItSupportScreen> {
   final ItSupportService _service = ItSupportService();
-  final TextEditingController _searchController = TextEditingController();
-  _StatusFilter _statusFilter = _StatusFilter.all;
-  _CategoryFilter _categoryFilter = _CategoryFilter.all;
-  String _query = '';
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
-    });
     if (widget.isActive) {
       Future.microtask(() => _service.markAllNotificationsAsRead());
     }
@@ -150,35 +146,6 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  List<SupportTicket> _applyFilters(List<SupportTicket> tickets) {
-    return tickets.where((t) {
-      // Status Filter
-      if (_statusFilter.status != null && t.status != _statusFilter.status) {
-        return false;
-      }
-      // Category Filter
-      if (_categoryFilter.value != null && t.category != _categoryFilter.value) {
-        return false;
-      }
-      // Search Query
-      if (_query.isEmpty) return true;
-      
-      final ticketNum = (tickets.indexOf(t) + 1).toString();
-      return t.requesterName.toLowerCase().contains(_query) ||
-          t.subject.toLowerCase().contains(_query) ||
-          t.description.toLowerCase().contains(_query) ||
-          t.category.toLowerCase().contains(_query) ||
-          ticketNum == _query ||
-          '#$ticketNum' == _query;
-    }).toList();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -186,7 +153,7 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 20),
               child: Row(
                 children: [
                   IconButton(
@@ -209,143 +176,257 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F3F6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    icon: Icon(
-                      Icons.search,
-                      color: AppThemeColors.textSecondary,
-                    ),
-                    hintText: 'Search by ID, user, subject...',
-                    hintStyle: TextStyle(color: AppThemeColors.textSecondary, fontSize: 14),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: _StatusFilter.values
-                    .map(
-                      (f) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _StatusFilterChip(
-                          label: f.label,
-                          selected: _statusFilter == f,
-                          onTap: () => setState(() => _statusFilter = f),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Select Category *',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppThemeColors.textPrimary),
-                  ),
-                  const SizedBox(height: 8),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.5,
-                    children: _CategoryFilter.values.map((f) {
-                      final isSelected = _categoryFilter == f;
-                      return GestureDetector(
-                        onTap: () => setState(() => _categoryFilter = f),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: f.backgroundColor,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(f.icon, color: f.color, size: 22),
-                              const SizedBox(height: 8),
-                              Text(
-                                f.label,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppThemeColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
             Expanded(
-              child: StreamBuilder<List<SupportTicket>>(
-                stream: _service.watchAllTickets(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final tickets = snapshot.data!;
-                  final filtered = _applyFilters(tickets);
-                  
-                  if (filtered.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No tickets match these filters.',
-                        style: TextStyle(color: AppThemeColors.textSecondary),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select Category',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppThemeColors.textPrimary,
                       ),
-                    );
-                  }
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final ticket = filtered[index];
-                      // Original index in the full list for ticket number display
-                      final displayIndex = tickets.indexOf(ticket) + 1;
-                      return _TicketCard(
-                        number: displayIndex,
-                        ticket: ticket,
-                        service: _service,
-                      );
-                    },
-                  );
-                },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: GridView.count(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.4,
+                        children: _CategoryFilter.values.map((f) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CategoryTicketsScreen(
+                                    category: f,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: f.backgroundColor,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: f.color.withOpacity(0.1),
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.02),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: f.color.withOpacity(0.1),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(f.icon, color: f.color, size: 24),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    f.label,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppThemeColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class CategoryTicketsScreen extends StatefulWidget {
+  final _CategoryFilter category;
+  const CategoryTicketsScreen({super.key, required this.category});
+
+  @override
+  State<CategoryTicketsScreen> createState() => _CategoryTicketsScreenState();
+}
+
+class _CategoryTicketsScreenState extends State<CategoryTicketsScreen> {
+  final ItSupportService _service = ItSupportService();
+  final TextEditingController _searchController = TextEditingController();
+  _StatusFilter _statusFilter = _StatusFilter.all;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.trim().toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<SupportTicket> _applyFilters(List<SupportTicket> tickets) {
+    return tickets.where((t) {
+      // Status Filter
+      if (_statusFilter.status != null && t.status != _statusFilter.status) {
+        return false;
+      }
+      // Category Filter (Always filtered by the category passed to this screen)
+      if (widget.category.value != null && t.category != widget.category.value) {
+        return false;
+      }
+      // Search Query
+      if (_query.isEmpty) return true;
+      
+      final ticketNum = (tickets.indexOf(t) + 1).toString();
+      return t.requesterName.toLowerCase().contains(_query) ||
+          t.subject.toLowerCase().contains(_query) ||
+          t.description.toLowerCase().contains(_query) ||
+          t.category.toLowerCase().contains(_query) ||
+          ticketNum == _query ||
+          '#$ticketNum' == _query;
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back, color: AppThemeColors.textPrimary),
+        ),
+        title: Text(
+          widget.category.label,
+          style: const TextStyle(
+            color: AppThemeColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F3F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: const InputDecoration(
+                  icon: Icon(Icons.search, color: AppThemeColors.textSecondary),
+                  hintText: 'Search tickets...',
+                  hintStyle: TextStyle(color: AppThemeColors.textSecondary, fontSize: 14),
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: _StatusFilter.values
+                  .map(
+                    (f) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _StatusFilterChip(
+                        label: f.label,
+                        selected: _statusFilter == f,
+                        onTap: () => setState(() => _statusFilter = f),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: StreamBuilder<List<SupportTicket>>(
+              stream: _service.watchAllTickets(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final tickets = snapshot.data!;
+                final filtered = _applyFilters(tickets);
+                
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 64,
+                          color: AppThemeColors.textSecondary.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No tickets found in this category.',
+                          style: TextStyle(color: AppThemeColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final ticket = filtered[index];
+                    final displayIndex = tickets.indexOf(ticket) + 1;
+                    return _TicketCard(
+                      number: displayIndex,
+                      ticket: ticket,
+                      service: _service,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -443,7 +524,7 @@ class _TicketCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: ticket.priorityBackground,
                     border: Border.all(
-                      color: ticket.priorityColor.withValues(alpha: 0.4),
+                      color: ticket.priorityColor.withOpacity(0.4),
                     ),
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -559,6 +640,7 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
   late final TextEditingController _responseController;
   late final TextEditingController _resolutionController;
   late bool _requiresAdminAttention;
+  late TicketStatus _selectedStatus;
   bool _isSaving = false;
 
   @override
@@ -567,6 +649,7 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
     _responseController = TextEditingController(text: widget.ticket.itResponse ?? '');
     _resolutionController = TextEditingController(text: widget.ticket.resolution ?? '');
     _requiresAdminAttention = widget.ticket.requiresAdminAttention;
+    _selectedStatus = widget.ticket.status;
   }
 
   @override
@@ -599,9 +682,10 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
     }
   }
 
-  Future<void> _updateProgress({bool resolve = false}) async {
+  Future<void> _handleSave() async {
     final response = _responseController.text.trim();
     final resolution = _resolutionController.text.trim();
+    final bool isResolving = _selectedStatus == TicketStatus.resolved;
 
     if (response.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -610,7 +694,7 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
       return;
     }
 
-    if (resolve && resolution.isEmpty) {
+    if (isResolving && resolution.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Resolution details are required to resolve.')),
       );
@@ -618,18 +702,22 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
     }
 
     setState(() => _isSaving = true);
+
     try {
       await widget.service.updateTicketProgress(
         ticketId: widget.ticket.id,
         itResponse: response,
-        resolution: resolve ? resolution : null,
-        markAsResolved: resolve,
+        resolution: isResolving ? resolution : null,
+        status: _selectedStatus,
         requiresAdminAttention: _requiresAdminAttention,
       );
+      
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(resolve ? 'Ticket resolved.' : 'Ticket updated.')),
+      
+      messenger.showSnackBar(
+        SnackBar(content: Text(isResolving ? 'Ticket marked as resolved.' : 'Ticket updated successfully.')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -731,6 +819,41 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Change Status',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppThemeColors.textPrimary),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<TicketStatus>(
+                        value: _selectedStatus,
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        items: TicketStatus.values.map((status) {
+                          String label = '';
+                          switch(status) {
+                            case TicketStatus.open: label = 'Open'; break;
+                            case TicketStatus.inProgress: label = 'In Progress'; break;
+                            case TicketStatus.resolved: label = 'Resolved'; break;
+                            case TicketStatus.pendingAdmin: label = 'Pending Admin'; break;
+                          }
+                          return DropdownMenuItem(value: status, child: Text(label));
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedStatus = val;
+                              if (val == TicketStatus.pendingAdmin) {
+                                _requiresAdminAttention = true;
+                              } else {
+                                _requiresAdminAttention = false;
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _responseController,
                         maxLines: 3,
@@ -741,44 +864,60 @@ class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: _resolutionController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Resolution (Required to resolve)',
-                          hintText: 'What was done to solve the issue?',
-                          border: OutlineInputBorder(),
+                      if (_selectedStatus == TicketStatus.resolved) ...[
+                        TextField(
+                          controller: _resolutionController,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            labelText: 'Resolution Details',
+                            hintText: 'What was done to solve the issue?',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Requires Admin Attention', style: TextStyle(fontSize: 14)),
-                        value: _requiresAdminAttention,
-                        onChanged: (val) => setState(() => _requiresAdminAttention = val ?? false),
-                        controlAffinity: ListTileControlAffinity.leading,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _isSaving ? null : () => _updateProgress(resolve: false),
-                              child: const Text('Update Status'),
-                            ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (_selectedStatus != TicketStatus.resolved)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Requires Admin Attention', style: TextStyle(fontSize: 14)),
+                          value: _requiresAdminAttention,
+                          onChanged: (val) {
+                            setState(() {
+                              _requiresAdminAttention = val ?? false;
+                              if (_requiresAdminAttention && _selectedStatus != TicketStatus.pendingAdmin) {
+                                _selectedStatus = TicketStatus.pendingAdmin;
+                              } else if (!_requiresAdminAttention && _selectedStatus == TicketStatus.pendingAdmin) {
+                                _selectedStatus = TicketStatus.inProgress;
+                              }
+                            });
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _handleSave,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppThemeColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _isSaving ? null : () => _updateProgress(resolve: true),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF10B981),
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Mark Resolved'),
-                            ),
-                          ),
-                        ],
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  _selectedStatus == TicketStatus.resolved ? 'Resolve Ticket' : 'Save Update',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
                       ),
                     ],
                   ),
