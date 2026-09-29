@@ -152,6 +152,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isHandlingDisabledUser = false;
   bool _isResettingNavAfterSignOut = false;
 
+  Stream<UserAccessState?>? _accessStream;
+  String? _lastStreamUid;
+
+  Stream<UserAccessState?> _getAccessStream(String uid) {
+    if (uid == _lastStreamUid && _accessStream != null) {
+      return _accessStream!;
+    }
+    _lastStreamUid = uid;
+    _accessStream = _accessControlService.watchUserAccessByUid(uid);
+    return _accessStream!;
+  }
+
   void _ensureUserDoc(String uid) {
     if (_ensuredUid == uid) return;
     _ensuredUid = uid;
@@ -190,7 +202,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           _ensureUserDoc(authUser.uid);
 
           return StreamBuilder<UserAccessState?>(
-            stream: _accessControlService.watchUserAccessByUid(authUser.uid),
+            stream: _getAccessStream(authUser.uid),
             builder: (context, accessSnapshot) {
               if (accessSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
@@ -199,16 +211,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
               }
 
               if (accessSnapshot.hasError) {
-                return Scaffold(
-                  body: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Text(
-                        'Failed to load account access state: ${accessSnapshot.error}',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
+                // Return the same screen instead of error scaffold if it's transient
+                // For now, just logging it and showing a simplified indicator if needed
+                debugPrint('Access stream error: ${accessSnapshot.error}');
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
                 );
               }
 

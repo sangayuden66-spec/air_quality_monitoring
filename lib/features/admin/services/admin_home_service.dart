@@ -83,4 +83,37 @@ class AdminHomeService {
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
+
+  Stream<List<Map<String, dynamic>>> watchAdminNotifications() {
+    return _firestore
+        .collection('adminNotifications')
+        .where('status', isEqualTo: 'unread')
+        // We avoid orderBy('createdAt') here to prevent missing index errors 
+        // during initial setup. We sort in memory instead.
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return data;
+          }).toList();
+          
+          items.sort((a, b) {
+            final tA = a['createdAt'] as Timestamp?;
+            final tB = b['createdAt'] as Timestamp?;
+            if (tA == null) return 1;
+            if (tB == null) return -1;
+            return tB.compareTo(tA);
+          });
+          
+          return items;
+        });
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) async {
+    await _firestore.collection('adminNotifications').doc(notificationId).update({
+      'status': 'read',
+      'readAt': FieldValue.serverTimestamp(),
+    });
+  }
 }

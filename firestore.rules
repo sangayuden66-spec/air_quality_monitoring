@@ -133,5 +133,9 @@ service cloud.firestore {
           request.resource.data.adminUid == request.auth.uid;
       allow update, delete: if false;
     }
+
+    match /adminNotifications/{notificationId} {
+      allow read, write: if isPrivilegedUser();
+    }
   }
 }

@@ -106,6 +106,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     final status = rawStatus.trim().toLowerCase();
     if (status == 'resolved') return 'Resolved';
     if (status == 'in-progress' || status == 'inprogress') return 'In Progress';
+    if (status == 'pending_admin' || status == 'pendingadmin') return 'Escalated to Admin';
     return 'Open';
   }
 
@@ -116,6 +117,9 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     }
     if (status == 'in-progress' || status == 'inprogress') {
       return (bg: const Color(0xFFEFF6FF), text: const Color(0xFF1D4ED8));
+    }
+    if (status == 'pending_admin' || status == 'pendingadmin') {
+      return (bg: const Color(0xFFFEF2F2), text: const Color(0xFFDC2626));
     }
     return (bg: const Color(0xFFFFF7ED), text: const Color(0xFFB45309));
   }
