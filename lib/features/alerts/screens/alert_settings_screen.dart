@@ -6,7 +6,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../auth/services/auth_service.dart';
 import 'contact_support_screen.dart';
 import 'help_center_screen.dart';
-import 'language_settings_screen.dart';
 import 'notification_preferences_screen.dart';
 import 'privacy_settings_screen.dart';
 import 'terms_and_privacy_screen.dart';
@@ -294,14 +293,6 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                   );
                 },
               ),
-              _SettingsTile(
-                icon: Icons.email_outlined,
-                iconColor: const Color(0xFF18A957),
-                iconBg: const Color(0xFFE8F7EE),
-                title: 'Email Preferences',
-                subtitle: 'Manage email notifications',
-                onTap: () {},
-              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -321,21 +312,6 @@ class _AlertSettingsScreenState extends State<AlertSettingsScreen> {
                       _isUpdatingTheme ? null : (value) => _toggleThemeMode(value),
                 ),
                 showChevron: false,
-              ),
-              _SettingsTile(
-                icon: Icons.language_outlined,
-                iconColor: const Color(0xFF5A6BFF),
-                iconBg: const Color(0xFFEAF1FF),
-                title: 'Language',
-                subtitle: 'English (US)',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LanguageSettingsScreen(),
-                    ),
-                  );
-                },
               ),
             ],
           ),

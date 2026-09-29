@@ -1,34 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/support_ticket.dart';
 import '../services/it_support_service.dart';
 
-enum _TicketFilter { all, open, inProgress, resolved }
+enum _StatusFilter { all, open, inProgress, resolved }
 
-extension on _TicketFilter {
+extension on _StatusFilter {
   String get label {
     switch (this) {
-      case _TicketFilter.all:
-        return 'All';
-      case _TicketFilter.open:
+      case _StatusFilter.all:
+        return 'All Statuses';
+      case _StatusFilter.open:
         return 'Open';
-      case _TicketFilter.inProgress:
+      case _StatusFilter.inProgress:
         return 'In Progress';
-      case _TicketFilter.resolved:
+      case _StatusFilter.resolved:
         return 'Resolved';
     }
   }
 
   TicketStatus? get status {
     switch (this) {
-      case _TicketFilter.all:
+      case _StatusFilter.all:
         return null;
-      case _TicketFilter.open:
+      case _StatusFilter.open:
         return TicketStatus.open;
-      case _TicketFilter.inProgress:
+      case _StatusFilter.inProgress:
         return TicketStatus.inProgress;
-      case _TicketFilter.resolved:
+      case _StatusFilter.resolved:
         return TicketStatus.resolved;
+    }
+  }
+}
+
+enum _CategoryFilter {
+  all,
+  technicalIssue,
+  dataAccuracy,
+  featureRequest,
+  generalInquiry
+}
+
+extension on _CategoryFilter {
+  String get label {
+    switch (this) {
+      case _CategoryFilter.all:
+        return 'All Categories';
+      case _CategoryFilter.technicalIssue:
+        return 'Technical Issue';
+      case _CategoryFilter.dataAccuracy:
+        return 'Data Accuracy';
+      case _CategoryFilter.featureRequest:
+        return 'Feature Request';
+      case _CategoryFilter.generalInquiry:
+        return 'General Inquiry';
+    }
+  }
+
+  String? get value {
+    switch (this) {
+      case _CategoryFilter.all:
+        return null;
+      default:
+        return label;
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case _CategoryFilter.technicalIssue:
+        return Icons.bug_report_outlined;
+      case _CategoryFilter.dataAccuracy:
+        return Icons.error_outline_rounded;
+      case _CategoryFilter.featureRequest:
+        return Icons.lightbulb_outline_rounded;
+      case _CategoryFilter.generalInquiry:
+        return Icons.help_outline_rounded;
+      case _CategoryFilter.all:
+        return Icons.grid_view_rounded;
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case _CategoryFilter.technicalIssue:
+        return const Color(0xFFDC2626);
+      case _CategoryFilter.dataAccuracy:
+        return const Color(0xFFD97706);
+      case _CategoryFilter.featureRequest:
+        return const Color(0xFF2563EB);
+      case _CategoryFilter.generalInquiry:
+        return const Color(0xFF7C3AED);
+      case _CategoryFilter.all:
+        return AppThemeColors.textPrimary;
+    }
+  }
+
+  Color get backgroundColor {
+    switch (this) {
+      case _CategoryFilter.technicalIssue:
+        return const Color(0xFFFEF2F2);
+      case _CategoryFilter.dataAccuracy:
+        return const Color(0xFFFFFBEB);
+      case _CategoryFilter.featureRequest:
+        return const Color(0xFFEFF6FF);
+      case _CategoryFilter.generalInquiry:
+        return const Color(0xFFF5F3FF);
+      case _CategoryFilter.all:
+        return const Color(0xFFF3F4F6);
     }
   }
 }
@@ -46,7 +126,8 @@ class ItSupportScreen extends StatefulWidget {
 class _ItSupportScreenState extends State<ItSupportScreen> {
   final ItSupportService _service = ItSupportService();
   final TextEditingController _searchController = TextEditingController();
-  _TicketFilter _filter = _TicketFilter.all;
+  _StatusFilter _statusFilter = _StatusFilter.all;
+  _CategoryFilter _categoryFilter = _CategoryFilter.all;
   String _query = '';
 
   @override
@@ -76,12 +157,24 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
 
   List<SupportTicket> _applyFilters(List<SupportTicket> tickets) {
     return tickets.where((t) {
-      if (_filter.status != null && t.status != _filter.status) return false;
+      // Status Filter
+      if (_statusFilter.status != null && t.status != _statusFilter.status) {
+        return false;
+      }
+      // Category Filter
+      if (_categoryFilter.value != null && t.category != _categoryFilter.value) {
+        return false;
+      }
+      // Search Query
       if (_query.isEmpty) return true;
+      
+      final ticketNum = (tickets.indexOf(t) + 1).toString();
       return t.requesterName.toLowerCase().contains(_query) ||
           t.subject.toLowerCase().contains(_query) ||
           t.description.toLowerCase().contains(_query) ||
-          t.category.toLowerCase().contains(_query);
+          t.category.toLowerCase().contains(_query) ||
+          ticketNum == _query ||
+          '#$ticketNum' == _query;
     }).toList();
   }
 
@@ -105,7 +198,7 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
                     ),
                   ),
                   const Icon(
-                    Icons.help_outline_rounded,
+                    Icons.support_agent_rounded,
                     color: AppThemeColors.textPrimary,
                   ),
                   const SizedBox(width: 8),
@@ -134,8 +227,8 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
                       Icons.search,
                       color: AppThemeColors.textSecondary,
                     ),
-                    hintText: 'Search tickets...',
-                    hintStyle: TextStyle(color: AppThemeColors.textSecondary),
+                    hintText: 'Search by ID, user, subject...',
+                    hintStyle: TextStyle(color: AppThemeColors.textSecondary, fontSize: 14),
                     border: InputBorder.none,
                   ),
                 ),
@@ -146,18 +239,72 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
-                children: _TicketFilter.values
+                children: _StatusFilter.values
                     .map(
                       (f) => Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: _FilterChip(
+                        child: _StatusFilterChip(
                           label: f.label,
-                          selected: _filter == f,
-                          onTap: () => setState(() => _filter = f),
+                          selected: _statusFilter == f,
+                          onTap: () => setState(() => _statusFilter = f),
                         ),
                       ),
                     )
                     .toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Category *',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppThemeColors.textPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.5,
+                    children: _CategoryFilter.values.map((f) {
+                      final isSelected = _categoryFilter == f;
+                      return GestureDetector(
+                        onTap: () => setState(() => _categoryFilter = f),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: f.backgroundColor,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(f.icon, color: f.color, size: 22),
+                              const SizedBox(height: 8),
+                              Text(
+                                f.label,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppThemeColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -169,22 +316,28 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  final tickets = _applyFilters(snapshot.data!);
-                  if (tickets.isEmpty) {
+                  final tickets = snapshot.data!;
+                  final filtered = _applyFilters(tickets);
+                  
+                  if (filtered.isEmpty) {
                     return const Center(
                       child: Text(
-                        'No tickets match this filter.',
+                        'No tickets match these filters.',
                         style: TextStyle(color: AppThemeColors.textSecondary),
                       ),
                     );
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: tickets.length,
+                    itemCount: filtered.length,
                     itemBuilder: (context, index) {
+                      final ticket = filtered[index];
+                      // Original index in the full list for ticket number display
+                      final displayIndex = tickets.indexOf(ticket) + 1;
                       return _TicketCard(
-                        number: index + 1,
-                        ticket: tickets[index],
+                        number: displayIndex,
+                        ticket: ticket,
+                        service: _service,
                       );
                     },
                   );
@@ -198,12 +351,12 @@ class _ItSupportScreenState extends State<ItSupportScreen> {
   }
 }
 
-class _FilterChip extends StatelessWidget {
+class _StatusFilterChip extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _FilterChip({
+  const _StatusFilterChip({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -240,8 +393,13 @@ class _FilterChip extends StatelessWidget {
 class _TicketCard extends StatelessWidget {
   final int number;
   final SupportTicket ticket;
+  final ItSupportService service;
 
-  const _TicketCard({required this.number, required this.ticket});
+  const _TicketCard({
+    required this.number,
+    required this.ticket,
+    required this.service,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -251,8 +409,11 @@ class _TicketCard extends StatelessWidget {
           context: context,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
-          builder: (context) =>
-              _TicketDetailsSheet(number: number, ticket: ticket),
+          builder: (context) => _TicketDetailsSheet(
+            number: number,
+            ticket: ticket,
+            service: service,
+          ),
         );
       },
       borderRadius: BorderRadius.circular(16),
@@ -263,16 +424,15 @@ class _TicketCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 4,
+            Row(
               children: [
-                Text(
-                  '#$number - ${ticket.requesterName}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                Expanded(
+                  child: Text(
+                    '#$number - ${ticket.requesterName}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
                 Container(
@@ -288,31 +448,47 @@ class _TicketCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    ticket.priorityLabel,
+                    ticket.priorityLabel.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
                       color: ticket.priorityColor,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               ticket.subject,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               ticket.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14),
+              style: const TextStyle(fontSize: 14, color: AppThemeColors.textSecondary),
             ),
             const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                ticket.category,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppThemeColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -345,10 +521,10 @@ class _TicketCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    ticket.statusLabel,
+                    ticket.statusDisplayLabel.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
                       color: ticket.isFilledStatusBadge
                           ? Colors.white
                           : AppThemeColors.textPrimary,
@@ -364,31 +540,116 @@ class _TicketCard extends StatelessWidget {
   }
 }
 
-class _TicketDetailsSheet extends StatelessWidget {
+class _TicketDetailsSheet extends StatefulWidget {
   final int number;
   final SupportTicket ticket;
+  final ItSupportService service;
 
-  const _TicketDetailsSheet({required this.number, required this.ticket});
+  const _TicketDetailsSheet({
+    required this.number,
+    required this.ticket,
+    required this.service,
+  });
 
-  String _formatDateTime(DateTime value) {
-    final month = value.month.toString().padLeft(2, '0');
-    final day = value.day.toString().padLeft(2, '0');
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    return '${value.year}-$month-$day $hour:$minute';
+  @override
+  State<_TicketDetailsSheet> createState() => _TicketDetailsSheetState();
+}
+
+class _TicketDetailsSheetState extends State<_TicketDetailsSheet> {
+  late final TextEditingController _responseController;
+  late final TextEditingController _resolutionController;
+  late bool _requiresAdminAttention;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _responseController = TextEditingController(text: widget.ticket.itResponse ?? '');
+    _resolutionController = TextEditingController(text: widget.ticket.resolution ?? '');
+    _requiresAdminAttention = widget.ticket.requiresAdminAttention;
   }
 
-  String _capitalize(String value) {
-    if (value.isEmpty) return value;
-    return '${value[0].toUpperCase()}${value.substring(1)}';
+  @override
+  void dispose() {
+    _responseController.dispose();
+    _resolutionController.dispose();
+    super.dispose();
+  }
+
+  String _formatDateTime(DateTime value) {
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} '
+           '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _assignToMe() async {
+    setState(() => _isSaving = true);
+    try {
+      await widget.service.assignTicketToMe(widget.ticket.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ticket assigned to you.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _updateProgress({bool resolve = false}) async {
+    final response = _responseController.text.trim();
+    final resolution = _resolutionController.text.trim();
+
+    if (response.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an IT response.')),
+      );
+      return;
+    }
+
+    if (resolve && resolution.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Resolution details are required to resolve.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await widget.service.updateTicketProgress(
+        ticketId: widget.ticket.id,
+        itResponse: response,
+        resolution: resolve ? resolution : null,
+        markAsResolved: resolve,
+        requiresAdminAttention: _requiresAdminAttention,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(resolve ? 'Ticket resolved.' : 'Ticket updated.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isAssigned = widget.ticket.assignedTo != null;
+    final bool isResolved = widget.ticket.status == TicketStatus.resolved;
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       child: SafeArea(
@@ -408,12 +669,23 @@ class _TicketDetailsSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              Text(
-                'Ticket #$number',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Ticket #${widget.number}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (!isAssigned && !isResolved)
+                    TextButton.icon(
+                      onPressed: _isSaving ? null : _assignToMe,
+                      icon: const Icon(Icons.person_add_outlined, size: 18),
+                      label: const Text('Assign to Me'),
+                    ),
+                ],
               ),
               const SizedBox(height: 12),
               Container(
@@ -423,43 +695,124 @@ class _TicketDetailsSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DetailRow(label: 'Subject', value: ticket.subject),
-                    _DetailRow(
-                      label: 'Requested by',
-                      value: ticket.requesterName,
+                    _DetailRow(label: 'Subject', value: widget.ticket.subject),
+                    _DetailRow(label: 'User', value: widget.ticket.requesterName),
+                    _DetailRow(label: 'Category', value: widget.ticket.category),
+                    _DetailRow(label: 'Priority', value: widget.ticket.priorityLabel.toUpperCase()),
+                    _DetailRow(label: 'Status', value: widget.ticket.statusDisplayLabel),
+                    _DetailRow(label: 'Created', value: _formatDateTime(widget.ticket.createdAt)),
+                    _DetailRow(label: 'Last Updated', value: _formatDateTime(widget.ticket.updatedAt)),
+                    if (isAssigned)
+                      _DetailRow(label: 'Assigned To', value: widget.ticket.assignedToName ?? 'Staff'),
+                    
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(),
                     ),
-                    if (ticket.requesterEmail.trim().isNotEmpty)
-                      _DetailRow(label: 'Email', value: ticket.requesterEmail),
-                    _DetailRow(label: 'Category', value: ticket.category),
-                    _DetailRow(
-                      label: 'Priority',
-                      value: _capitalize(ticket.priorityLabel),
-                    ),
-                    _DetailRow(
-                      label: 'Status',
-                      value: ticket.statusDisplayLabel,
-                    ),
-                    _DetailRow(
-                      label: 'Submitted',
-                      value: _formatDateTime(ticket.createdAt),
-                    ),
-                    const SizedBox(height: 8),
                     const Text(
                       'Description',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppThemeColors.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppThemeColors.textSecondary),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      ticket.description,
-                      style: const TextStyle(fontSize: 14, height: 1.4),
-                    ),
+                    const SizedBox(height: 4),
+                    Text(widget.ticket.description, style: const TextStyle(fontSize: 14, height: 1.5)),
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
+              if (!isResolved) ...[
+                const Text(
+                  'IT Actions',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: AppThemeStyles.cardDecoration(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _responseController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'IT Response (Visible to User)',
+                          hintText: 'Describe the current status or investigation...',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _resolutionController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Resolution (Required to resolve)',
+                          hintText: 'What was done to solve the issue?',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Requires Admin Attention', style: TextStyle(fontSize: 14)),
+                        value: _requiresAdminAttention,
+                        onChanged: (val) => setState(() => _requiresAdminAttention = val ?? false),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isSaving ? null : () => _updateProgress(resolve: false),
+                              child: const Text('Update Status'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isSaving ? null : () => _updateProgress(resolve: true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Mark Resolved'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                const Text(
+                  'Resolution Details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: AppThemeStyles.cardDecoration().copyWith(
+                    color: const Color(0xFFF0FDF4),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _DetailRow(label: 'Resolved By', value: widget.ticket.assignedToName ?? 'Staff'),
+                      if (widget.ticket.resolvedAt != null)
+                        _DetailRow(label: 'Resolved At', value: _formatDateTime(widget.ticket.resolvedAt!)),
+                      const Divider(),
+                      const Text(
+                        'Final Resolution',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(widget.ticket.resolution ?? 'No resolution recorded.'),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -477,17 +830,17 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 92,
+            width: 100,
             child: Text(
               label,
               style: const TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: AppThemeColors.textSecondary,
               ),
             ),
@@ -497,7 +850,8 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
                 color: AppThemeColors.textPrimary,
               ),
             ),

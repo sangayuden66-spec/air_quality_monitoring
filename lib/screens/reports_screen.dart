@@ -228,7 +228,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 textColor: const Color(0xFF0F9D75),
                                 backgroundColor: const Color(0xFFE8F8F1),
                                 onTap: () =>
-                                    _reportService.confirmReport(report.id),
+                                    _reportService.confirmReport(report),
                               ),
                               const SizedBox(width: 16),
                               _buildAction(
@@ -238,7 +238,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 textColor: const Color(0xFFDC2626),
                                 backgroundColor: const Color(0xFFFDEDED),
                                 onTap: () =>
-                                    _reportService.denyReport(report.id),
+                                    _reportService.denyReport(report),
                               ),
                             ],
                           ),
